@@ -1,6 +1,25 @@
 package com.wizlabs.billbox.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import com.wizlabs.billbox.ui.anim.CountUpText
+import com.wizlabs.billbox.ui.anim.LocalReduceMotion
+import com.wizlabs.billbox.ui.anim.Motion
+import com.wizlabs.billbox.ui.anim.enterUp
+import com.wizlabs.billbox.ui.anim.sharedBoundsHero
+import com.wizlabs.billbox.ui.anim.sharedHero
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,6 +95,12 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /** Filters and sorts bills for the list. Kept free of UI so it can be unit-tested. */
+/** Remembers, for this app launch, that the home intro already played and which rows were shown. */
+private object HomeIntro {
+    var played = false
+    val seen = mutableSetOf<String>()
+}
+
 object BillQuery {
     fun apply(bills: List<Bill>, query: String, category: Category?, sort: SortBy): List<Bill> {
         val q = query.trim().lowercase()
@@ -100,10 +125,13 @@ object BillQuery {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    vm: AppViewModel, data: AppData, sync: SyncState, contentPadding: PaddingValues,
+    vm: AppViewModel, data: AppData, sync: SyncState, contentPadding: PaddingValues, listState: LazyListState,
     onOpen: (Bill) -> Unit, onSignIn: () -> Unit,
 ) {
     val c = Wiz.c
+    // The intro (cards rising in one after another) plays once per app launch, not on every return.
+    val intro = remember { !HomeIntro.played }
+    LaunchedEffect(Unit) { HomeIntro.played = true }
     var query by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf<Category?>(null) }
     var sort by rememberSaveable { mutableStateOf(SortBy.DATE) }
@@ -121,6 +149,7 @@ fun HomeScreen(
     ) {
         LazyColumn(
             Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(
                 start = 16.dp, end = 16.dp,
                 top = contentPadding.calculateTopPadding() + 4.dp,
@@ -128,14 +157,19 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { StatusBanner(data, sync, onSignIn, onRetry = { vm.requestSync() }) }
+            item(key = "banner") {
+                AnimatedVisibility(
+                    visible = data.account == null || sync is SyncState.NeedsSignIn || sync is SyncState.Failed,
+                    enter = expandVertically(Motion.smooth()) + fadeIn(), exit = shrinkVertically(Motion.smooth()) + fadeOut(),
+                ) { StatusBanner(data, sync, onSignIn, onRetry = { vm.requestSync() }) }
+            }
 
             if (data.bills.isNotEmpty()) {
-                item { Summary(data.bills, soon.size) }
-                item {
+                item(key = "summary") { Summary(data.bills, soon.size, Modifier.enterUp(0, intro)) }
+                item(key = "search") {
                     OutlinedTextField(
                         value = query, onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().enterUp(1, intro),
                         placeholder = { Text("Search store, product, invoice no.") },
                         leadingIcon = { Icon(Icons.Rounded.Search, null) },
                         trailingIcon = {
@@ -149,8 +183,8 @@ fun HomeScreen(
                         ),
                     )
                 }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                item(key = "chips") {
+                    Row(Modifier.enterUp(2, intro), verticalAlignment = Alignment.CenterVertically) {
                         LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             item { Chip("All", category == null) { category = null } }
                             items(usedCats) { cat -> Chip(cat.label, category == cat) { category = if (category == cat) null else cat } }
@@ -169,7 +203,7 @@ fun HomeScreen(
                     }
                 }
                 if (soon.isNotEmpty() && query.isEmpty() && category == null) {
-                    item { WarrantyCard(vm, soon, onOpen) }
+                    item(key = "warranty") { WarrantyCard(vm, soon, onOpen, Modifier.animateItem().enterUp(3, intro)) }
                 }
             }
 
@@ -186,13 +220,19 @@ fun HomeScreen(
                 item { EmptyBox(Icons.Rounded.SearchOff, "Nothing matches", "Try another word or clear the filter.") }
             } else {
                 var lastHeader: String? = null
+                var rowIndex = 0
                 list.forEach { b ->
                     val header = if (sort == SortBy.DATE) Fmt.month(b.invoiceDate) else null
                     if (header != null && header != lastHeader) {
                         lastHeader = header
-                        item(key = "h-$header") { Overline(header, Modifier.padding(top = 10.dp, start = 4.dp)) }
+                        item(key = "h-$header") { Overline(header, Modifier.animateItem().padding(top = 10.dp, start = 4.dp)) }
                     }
-                    item(key = b.id) { BillRow(vm, b, signedIn) { onOpen(b) } }
+                    val idx = rowIndex++
+                    item(key = b.id) {
+                        BillRow(vm, b, signedIn, Modifier.animateItem(fadeInSpec = tween(250), placementSpec = Motion.smooth(), fadeOutSpec = tween(200))
+                            .enterUp(4 + idx, intro || b.id !in HomeIntro.seen)) { onOpen(b) }
+                        LaunchedEffect(b.id) { HomeIntro.seen += b.id }
+                    }
                 }
             }
         }
@@ -212,19 +252,29 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Summary(bills: List<Bill>, soonCount: Int) {
+private fun Summary(bills: List<Bill>, soonCount: Int, modifier: Modifier = Modifier) {
     val c = Wiz.c
     val year = LocalDate.now().year
     val thisYear = bills.filter { it.invoiceDate.year == year }
     val spent = thisYear.sumOf { it.amount ?: 0.0 }
     val active = bills.count { b -> b.warrantyUntil?.let { !it.isBefore(LocalDate.now()) } == true }
-    WizCard {
+    WizCard(modifier) {
         Row(Modifier.fillMaxWidth()) {
-            Stat("Bills", bills.size.toString(), Modifier.weight(1f))
-            Stat("Spent in $year", if (spent > 0) Fmt.rupees(spent) else "—", Modifier.weight(1.5f))
+            CountStat("Bills", bills.size.toDouble(), { it.roundToInt().toString() }, Modifier.weight(1f))
+            if (spent > 0) CountStat("Spent in $year", spent, { Fmt.rupees(it) }, Modifier.weight(1.5f))
+            else Stat("Spent in $year", "—", Modifier.weight(1.5f))
             Stat("Warranties", if (soonCount > 0) "$active · $soonCount soon" else active.toString(), Modifier.weight(1.2f),
                 color = if (soonCount > 0) c.warn else c.text)
         }
+    }
+}
+
+@Composable
+private fun CountStat(label: String, value: Double, format: (Double) -> String, modifier: Modifier) {
+    Column(modifier) {
+        Overline(label)
+        Spacer(Modifier.height(4.dp))
+        CountUpText(value, format, MaterialTheme.typography.titleMedium.merge(Numeric).copy(fontWeight = FontWeight.Bold), Wiz.c.text)
     }
 }
 
@@ -239,11 +289,18 @@ private fun Stat(label: String, value: String, modifier: Modifier, color: androi
 }
 
 @Composable
-private fun WarrantyCard(vm: AppViewModel, soon: List<Bill>, onOpen: (Bill) -> Unit) {
+private fun WarrantyCard(vm: AppViewModel, soon: List<Bill>, onOpen: (Bill) -> Unit, modifier: Modifier = Modifier) {
     val c = Wiz.c
-    WizCard {
+    // The hourglass flips over every few seconds.
+    val reduce = LocalReduceMotion.current
+    val flip = remember { Animatable(0f) }
+    LaunchedEffect(reduce) {
+        if (reduce) return@LaunchedEffect
+        while (true) { delay(2600); flip.animateTo(flip.value + 180f, spring(dampingRatio = 0.5f, stiffness = 200f)) }
+    }
+    WizCard(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.HourglassBottom, null, tint = c.warn, modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.HourglassBottom, null, tint = c.warn, modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = flip.value })
             Spacer(Modifier.width(8.dp))
             Text("Warranty ending soon", style = MaterialTheme.typography.titleMedium, color = c.text)
         }
@@ -305,19 +362,20 @@ private fun Banner(
 }
 
 @Composable
-fun BillRow(vm: AppViewModel, b: Bill, signedIn: Boolean, onClick: () -> Unit) {
+fun BillRow(vm: AppViewModel, b: Bill, signedIn: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val c = Wiz.c
-    WizCard(onClick = onClick) {
+    WizCard(modifier, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val first = b.photos.firstOrNull()
             if (first != null) {
-                BillImage(vm, b.id, first, targetPx = 200, modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)))
+                BillImage(vm, b.id, first, targetPx = 200, modifier = Modifier.sharedHero("hero-${b.id}").size(56.dp).clip(RoundedCornerShape(14.dp)))
             } else {
-                IconBadge(b.category.icon(), size = 56.dp, tint = c.accentInk, bg = c.surface2)
+                Box(Modifier.sharedHero("hero-${b.id}")) { IconBadge(b.category.icon(), size = 56.dp, tint = c.accentInk, bg = c.surface2) }
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(b.product, style = MaterialTheme.typography.titleMedium, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(b.product, style = MaterialTheme.typography.titleMedium, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.sharedBoundsHero("title-${b.id}"))
                 Text(b.store, style = MaterialTheme.typography.bodyMedium, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

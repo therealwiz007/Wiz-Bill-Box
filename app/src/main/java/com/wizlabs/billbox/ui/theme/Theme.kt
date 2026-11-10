@@ -1,5 +1,7 @@
 package com.wizlabs.billbox.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -64,7 +66,7 @@ val Numeric = TextStyle(fontFeatureSettings = "tnum")
 @Composable
 fun WizTheme(mode: ThemeMode, content: @Composable () -> Unit) {
     val dark = when (mode) { ThemeMode.SYSTEM -> isSystemInDarkTheme(); ThemeMode.DARK -> true; ThemeMode.LIGHT -> false }
-    val p = if (dark) DarkPalette else LightPalette
+    val p = animatedPalette(if (dark) DarkPalette else LightPalette)
     val scheme = if (dark) darkColorScheme(
         primary = p.accent, onPrimary = p.onAccent, secondary = p.accent2, background = p.bg, onBackground = p.text,
         surface = p.surface, onSurface = p.text, surfaceVariant = p.surface2, onSurfaceVariant = p.muted,
@@ -92,4 +94,15 @@ fun WizTheme(mode: ThemeMode, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalWiz provides p) {
         MaterialTheme(colorScheme = scheme, typography = type, content = content)
     }
+}
+
+/** Cross-fades every colour when the theme changes instead of snapping. */
+@Composable
+private fun animatedPalette(t: WizPalette): WizPalette {
+    @Composable fun a(c: Color) = animateColorAsState(c, tween(450), label = "theme").value
+    return WizPalette(
+        isDark = t.isDark, bg = a(t.bg), surface = a(t.surface), surface2 = a(t.surface2), line = a(t.line),
+        text = a(t.text), muted = a(t.muted), accent = a(t.accent), onAccent = a(t.onAccent), accentInk = a(t.accentInk),
+        accent2 = a(t.accent2), good = a(t.good), warn = a(t.warn), bad = a(t.bad),
+    )
 }

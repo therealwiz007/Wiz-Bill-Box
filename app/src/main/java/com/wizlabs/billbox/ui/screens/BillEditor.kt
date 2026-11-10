@@ -5,6 +5,24 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import com.wizlabs.billbox.ui.anim.Motion
+import com.wizlabs.billbox.ui.anim.enterUp
+import com.wizlabs.billbox.ui.anim.pressScale
+import com.wizlabs.billbox.ui.anim.rememberPulse
+import com.wizlabs.billbox.ui.anim.shakeOn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -112,6 +130,7 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
     val added = remember { mutableStateListOf<String>() } // files imported in this session, removed on cancel
     var importing by remember { mutableStateOf(0) }
     var showErrors by remember { mutableStateOf(false) }
+    var shake by remember { mutableIntStateOf(0) }
     var datePicker by remember { mutableStateOf<DateField?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var cameraFile by rememberSaveable { mutableStateOf<String?>(null) }
@@ -164,7 +183,7 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
     val valid = store.isNotBlank() && product.isNotBlank() && !amountBad && importing == 0
 
     fun save() {
-        if (!valid) { showErrors = true; return }
+        if (!valid) { showErrors = true; shake++; return }
         val base = existing ?: Bill(store = "", product = "", invoiceDate = date)
         val bill = base.copy(
             store = store.trim(), product = product.trim(), invoiceDate = date, amount = amountValue,
@@ -202,7 +221,15 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
             Overline("Bill photos")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(photos, key = { it.id }) { p ->
-                    Box(Modifier.size(width = 110.dp, height = 140.dp)) {
+                    // New photos pop in with a little bounce; removed ones shrink away.
+                    val fresh = p.localName in added
+                    val pop = remember { Animatable(if (fresh) 0.4f else 1f) }
+                    LaunchedEffect(Unit) { pop.animateTo(1f, Motion.bouncy()) }
+                    Box(
+                        Modifier.animateItem(fadeInSpec = tween(220), placementSpec = Motion.smooth(), fadeOutSpec = tween(180))
+                            .graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value.coerceIn(0f, 1f) }
+                            .size(width = 110.dp, height = 140.dp),
+                    ) {
                         BillImage(vm, existing?.id ?: "", p, 360, Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)))
                         Box(
                             Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).clip(CircleShape)
@@ -232,6 +259,7 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
             Field(
                 store, { store = it }, "Store name *", error = showErrors && store.isBlank(),
                 cap = KeyboardCapitalization.Words,
+                modifier = Modifier.enterUp(1).shakeOn(if (store.isBlank()) shake else 0),
             )
             val suggestions = remember(store, knownStores) {
                 if (store.length < 1) emptyList()
@@ -242,8 +270,11 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
                     suggestions.forEach { s -> SmallChip(s, false) { store = s } }
                 }
             }
-            Field(product, { product = it }, "Product / items *", error = showErrors && product.isBlank(), cap = KeyboardCapitalization.Sentences)
-            DateBox("Invoice date *", Fmt.date(date)) { datePicker = DateField.INVOICE }
+            Field(
+                product, { product = it }, "Product / items *", error = showErrors && product.isBlank(), cap = KeyboardCapitalization.Sentences,
+                modifier = Modifier.enterUp(2).shakeOn(if (product.isBlank()) shake else 0),
+            )
+            Box(Modifier.enterUp(3)) { DateBox("Invoice date *", Fmt.date(date)) { datePicker = DateField.INVOICE } }
 
             // Optional
             Overline("Optional", Modifier.padding(top = 8.dp))
@@ -276,9 +307,18 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
                     }
                     SmallChip("Pick date", false) { datePicker = DateField.WARRANTY }
                 }
-                warranty?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text("Valid until ${Fmt.date(it)} · ${Fmt.warranty(it)}", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                AnimatedContent(
+                    warranty,
+                    transitionSpec = {
+                        (fadeIn(tween(220)) + slideInVertically(Motion.smooth()) { it / 2 }) togetherWith fadeOut(tween(150)) using
+                            SizeTransform(clip = false)
+                    },
+                    label = "warranty",
+                ) { w ->
+                    if (w != null) Column {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Valid until ${Fmt.date(w)} · ${Fmt.warranty(w)}", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    }
                 }
             }
 
@@ -320,9 +360,12 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
 @Composable
 private fun AddTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     val c = Wiz.c
+    val press = remember { MutableInteractionSource() }
+    val glow = rememberPulse(0.35f, 0.75f, 2200)
     Column(
-        Modifier.size(width = 110.dp, height = 140.dp).clip(RoundedCornerShape(16.dp)).background(c.surface)
-            .border(1.5.dp, c.accentInk.copy(alpha = 0.5f), RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+        Modifier.pressScale(press, 0.93f).size(width = 110.dp, height = 140.dp).clip(RoundedCornerShape(16.dp)).background(c.surface)
+            .border(1.5.dp, c.accentInk.copy(alpha = glow), RoundedCornerShape(16.dp))
+            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         Icon(icon, null, tint = c.accentInk, modifier = Modifier.size(30.dp))

@@ -87,6 +87,12 @@ import com.wizlabs.billbox.ui.components.WizCard
 import com.wizlabs.billbox.ui.components.icon
 import com.wizlabs.billbox.ui.theme.Wiz
 import java.time.LocalDate
+import com.wizlabs.billbox.ui.anim.CountUpText
+import com.wizlabs.billbox.ui.anim.enterUp
+import com.wizlabs.billbox.ui.anim.rememberPulse
+import com.wizlabs.billbox.ui.anim.sharedBoundsHero
+import com.wizlabs.billbox.ui.anim.sharedHero
+import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -112,17 +118,27 @@ fun BillDetail(vm: AppViewModel, bill: Bill, signedIn: Boolean, onBack: () -> Un
             )
         },
     ) { pad ->
+        val scroll = rememberScrollState()
         Column(
-            Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding(),
+            Modifier.fillMaxSize().padding(pad).verticalScroll(scroll).padding(horizontal = 16.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (bill.photos.isNotEmpty()) {
                 val pager = rememberPagerState { bill.photos.size }
                 Box {
                     HorizontalPager(pager, pageSpacing = 10.dp) { i ->
+                        // Neighbouring photos shrink and dim as you swipe; the photo drifts slower than the page (parallax).
+                        val offset = ((pager.currentPage - i) + pager.currentPageOffsetFraction).absoluteValue.coerceIn(0f, 1f)
                         BillImage(
                             vm, bill.id, bill.photos[i], 1200,
-                            Modifier.fillMaxWidth().aspectRatio(0.8f).clip(RoundedCornerShape(20.dp)).clickable { viewer = i },
+                            Modifier.then(if (i == 0) Modifier.sharedHero("hero-${bill.id}") else Modifier)
+                                .fillMaxWidth().aspectRatio(0.8f)
+                                .graphicsLayer {
+                                    val s = 1f - 0.1f * offset
+                                    scaleX = s; scaleY = s; alpha = 1f - 0.35f * offset
+                                    translationY = scroll.value * 0.35f
+                                }
+                                .clip(RoundedCornerShape(20.dp)).clickable { viewer = i },
                         )
                     }
                     if (bill.photos.size > 1) {
@@ -137,18 +153,21 @@ fun BillDetail(vm: AppViewModel, bill: Bill, signedIn: Boolean, onBack: () -> Un
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(bill.category.icon(), size = 48.dp)
+                Box(if (bill.photos.isEmpty()) Modifier.sharedHero("hero-${bill.id}") else Modifier.enterUp(0)) {
+                    IconBadge(bill.category.icon(), size = 48.dp)
+                }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(bill.product, style = MaterialTheme.typography.headlineSmall, color = c.text)
+                    Text(bill.product, style = MaterialTheme.typography.headlineSmall, color = c.text,
+                        modifier = Modifier.sharedBoundsHero("title-${bill.id}"))
                     Text(bill.store, style = MaterialTheme.typography.bodyLarge, color = c.muted)
                 }
             }
             bill.amount?.let {
-                Text(Fmt.rupees(it), style = MaterialTheme.typography.displaySmall, color = c.accentInk)
+                CountUpText(it, { v -> Fmt.rupees(v) }, MaterialTheme.typography.displaySmall, c.accentInk, Modifier.enterUp(1))
             }
 
-            WizCard {
+            WizCard(Modifier.enterUp(2)) {
                 InfoRow("Store", bill.store, Icons.Rounded.Storefront)
                 InfoRow("Invoice date", Fmt.date(bill.invoiceDate), Icons.Rounded.CalendarMonth)
                 bill.amount?.let { InfoRow("Amount", Fmt.rupees(it), Icons.Rounded.CurrencyRupee) }
@@ -160,9 +179,11 @@ fun BillDetail(vm: AppViewModel, bill: Bill, signedIn: Boolean, onBack: () -> Un
 
             bill.warrantyUntil?.let { w ->
                 val active = !w.isBefore(LocalDate.now())
-                WizCard {
+                val beat = if (active) rememberPulse(0.9f, 1.12f, 1600) else 1f
+                WizCard(Modifier.enterUp(3)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Verified, null, tint = if (active) c.good else c.muted)
+                        Icon(Icons.Rounded.Verified, null, tint = if (active) c.good else c.muted,
+                            modifier = Modifier.graphicsLayer { scaleX = beat; scaleY = beat })
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text("Warranty until ${Fmt.date(w)}", style = MaterialTheme.typography.titleSmall, color = c.text, fontWeight = FontWeight.Bold)
@@ -173,14 +194,14 @@ fun BillDetail(vm: AppViewModel, bill: Bill, signedIn: Boolean, onBack: () -> Un
             }
 
             if (bill.notes.isNotBlank()) {
-                WizCard {
+                WizCard(Modifier.enterUp(4)) {
                     Overline("Notes")
                     Spacer(Modifier.height(6.dp))
                     Text(bill.notes, style = MaterialTheme.typography.bodyLarge, color = c.text)
                 }
             }
 
-            WizCard {
+            WizCard(Modifier.enterUp(5)) {
                 val uploaded = !bill.dirty && bill.driveJsonId != null
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (uploaded) Icons.Rounded.CloudDone else Icons.Rounded.CloudUpload, null, tint = if (uploaded) c.good else c.warn)

@@ -66,6 +66,13 @@ class Photos(private val context: Context) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 
+    /** A photo already decoded at [targetPx], if any (no disk access). */
+    fun cached(name: String, targetPx: Int): Bitmap? = cache.get("$name@$targetPx")
+
+    /** Any decoded size of this photo, largest first: a sharp-enough placeholder while the right size loads. */
+    fun anyCached(name: String): Bitmap? =
+        cache.snapshot().filterKeys { it.startsWith("$name@") }.values.maxByOrNull { it.width }
+
     /** Decodes a stored photo at roughly [targetPx] on its longest side. Call off the main thread. */
     fun load(name: String, targetPx: Int): Bitmap? {
         val key = "$name@$targetPx"

@@ -1,0 +1,7 @@
+A more beautiful Wiz Bill Box:
+• Bill photos fly smoothly from the list into the bill screen
+• Screens slide and the editor rises like a sheet
+• Cards rise in, totals count up and buttons spring when tapped
+• A "saved" celebration when you add or update a bill
+• Smooth dark/light theme switch
+• Respects Android's "Remove animations" setting

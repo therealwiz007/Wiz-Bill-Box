@@ -1,6 +1,19 @@
 package com.wizlabs.billbox.ui.components
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import com.wizlabs.billbox.ui.anim.enterUp
+import com.wizlabs.billbox.ui.anim.floating
+import com.wizlabs.billbox.ui.anim.pressScale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -81,8 +94,13 @@ fun Category?.icon(): ImageVector = when (this) {
 @Composable
 fun WizCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     val c = Wiz.c
+    val interaction = remember { MutableInteractionSource() }
     Surface(
-        modifier = modifier.fillMaxWidth().then(if (onClick != null) Modifier.clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick) else Modifier),
+        modifier = modifier.fillMaxWidth().then(
+            if (onClick != null) Modifier.pressScale(interaction).clip(RoundedCornerShape(20.dp))
+                .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
+            else Modifier
+        ),
         shape = RoundedCornerShape(20.dp),
         color = c.surface,
         border = BorderStroke(1.dp, c.line),
@@ -126,9 +144,15 @@ fun Pill(text: String, icon: ImageVector? = null, color: Color = Wiz.c.muted, bg
 
 @Composable
 fun SyncingIcon() {
-    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.CloudSync, null, tint = Wiz.c.muted, modifier = Modifier.size(16.dp))
-        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = Wiz.c.accentInk)
+    // A cloud that gently bobs while a ring spins around it.
+    val t = rememberInfiniteTransition(label = "sync")
+    val turn by t.animateFloat(0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing)), label = "turn")
+    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        Icon(Icons.Rounded.CloudSync, "Syncing", tint = Wiz.c.accentInk, modifier = Modifier.size(20.dp).floating(1.5.dp, 900))
+        CircularProgressIndicator(
+            progress = { 0.28f }, strokeWidth = 2.5.dp, color = Wiz.c.accentInk, trackColor = Color.Transparent,
+            modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = turn },
+        )
     }
 }
 
@@ -141,9 +165,13 @@ fun BillImage(
     modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop,
 ) {
     val c = Wiz.c
-    val bmp by produceState<Bitmap?>(null, photo.localName, photo.driveId, targetPx) {
+    // Use an already-decoded bitmap straight away (keeps shared-element transitions seamless).
+    val exact = remember(photo.localName, targetPx) { photo.localName?.let { vm.photos.cached(it, targetPx) } }
+    val placeholder = remember(photo.localName, targetPx) { exact ?: photo.localName?.let { vm.photos.anyCached(it) } }
+    val photoCacheHit = placeholder != null
+    val bmp by produceState(placeholder, photo.localName, photo.driveId, targetPx) {
         val name = photo.localName
-        value = if (name != null) withContext(Dispatchers.IO) { vm.photos.load(name, targetPx) } else null
+        if (exact == null && name != null) withContext(Dispatchers.IO) { vm.photos.load(name, targetPx) }?.let { value = it }
     }
     if (photo.localName == null && photo.driveId != null) {
         LaunchedEffect(photo.id) { vm.ensurePhoto(billId, photo.id) {} }
@@ -151,7 +179,10 @@ fun BillImage(
     Box(modifier.background(c.surface2), contentAlignment = Alignment.Center) {
         val b = bmp
         if (b != null) {
-            Image(b.asImageBitmap(), contentDescription = "Bill photo", contentScale = contentScale, modifier = Modifier.fillMaxSize())
+            val shown = remember(b) { Animatable(if (photoCacheHit) 1f else 0f) }
+            LaunchedEffect(b) { shown.animateTo(1f, tween(320)) }
+            Image(b.asImageBitmap(), contentDescription = "Bill photo", contentScale = contentScale,
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = shown.value })
         } else if (photo.localName == null && photo.driveId != null) {
             CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = c.accentInk)
         } else {
@@ -163,9 +194,9 @@ fun BillImage(
 @Composable
 fun EmptyBox(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier) {
     val c = Wiz.c
-    Column(modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier.fillMaxWidth().padding(32.dp).enterUp(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            Modifier.size(84.dp).clip(RoundedCornerShape(28.dp)).background(c.surface).border(1.dp, c.line, RoundedCornerShape(28.dp)),
+            Modifier.floating(7.dp).size(84.dp).clip(RoundedCornerShape(28.dp)).background(c.surface).border(1.dp, c.line, RoundedCornerShape(28.dp)),
             contentAlignment = Alignment.Center,
         ) { Icon(icon, null, tint = c.accentInk, modifier = Modifier.size(40.dp)) }
         Spacer(Modifier.size(16.dp))
