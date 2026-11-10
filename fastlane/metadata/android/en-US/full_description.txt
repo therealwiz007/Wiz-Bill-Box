@@ -1,0 +1,35 @@
+Wiz Bill Box keeps every bill, invoice and receipt in one place, and safely in your own Google Drive. Take a photo, add the store, the product and the invoice date, and you're done. Change your phone or reinstall the app, sign in with Google, and all your bills come back.
+
+SNAP A BILL IN SECONDS
+• Take a photo with the camera or pick several from your gallery
+• Add the store name, product and invoice date; stores you've used before are suggested as you type
+• Optional details: amount (₹), invoice number, category, payment mode (Cash, UPI, Card, EMI…), warranty end date, GSTIN and notes such as the serial number
+
+SAFE IN YOUR GOOGLE DRIVE
+• Every bill is saved to a "Wiz Bill Box" folder in your own Google Drive, with its photos and details
+• Sign in on a new phone and all your bills are restored automatically
+• Changes and deletions sync between your phones; deleted bills go to the Drive bin, so you can still get them back for 30 days
+• Works offline: bills are saved on the phone straight away and upload when you're back online
+• Private by design: the app can only see the files it creates, nothing else in your Drive
+
+FIND ANY BILL FAST
+• Search by store, product, invoice number, notes or GSTIN
+• Filter by category and sort by date, amount, store or recently added
+• Bills grouped by month, with totals for the year
+
+NEVER MISS A WARRANTY
+• Set the warranty in one tap: 6 months, 1, 2, 3 or 5 years, or any date
+• "Warranty ending soon" shows what's about to run out (7 to 90 days, your choice)
+• Keep the bill ready when you need a repair, a replacement or an insurance claim
+
+MORE
+• Full-screen photo viewer with pinch-zoom
+• Share a bill's photos and details on WhatsApp, email or anywhere
+• Open any bill straight in Google Drive
+• Dark and light themes
+• Indian rupee formatting (₹1,23,456)
+
+PRIVACY
+No ads, no tracking and no Wiz Labs account. Your bills are stored only on your phone and in your own Google Drive; Wiz Labs never receives them.
+
+Perfect for electronics and appliance bills, medical bills, grocery and fuel receipts, furniture, vehicle service and anything with a warranty.

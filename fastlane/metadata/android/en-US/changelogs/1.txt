@@ -1,0 +1,5 @@
+First release of Wiz Bill Box.
+• Photograph bills and add store, product and invoice date
+• Optional amount, invoice no., category, payment mode, warranty, GSTIN and notes
+• Saved to your own Google Drive and restored on any phone after Google sign-in
+• Search, filters and warranty reminders

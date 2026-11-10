@@ -4,9 +4,9 @@ Wiz Bill Box is a Wiz Labs Android app for saving bills. Take a photo of a bill,
 
 - **Package:** `com.wizlabs.billbox`
 - **Launcher name:** Wiz Bill Box
-- **Play title:** Wiz Bill Box: Save Bills to Drive
+- **Play title:** Wiz Bill Box: Bills & Warranty
 - **Tech:** Kotlin, Jetpack Compose, Google Identity Services, Drive REST v3
-- **Version:** 1.0.0 (versionCode 1)
+- **Version:** 1.0.1 (versionCode 2)
 
 ## Features
 
@@ -68,7 +68,10 @@ Note that play-services-auth comes from Google Maven, so the first build needs i
 
 Signed release builds come from GitHub Actions (`.github/workflows/android.yml`), using the `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD` secrets. It uploads two artifacts: `Wiz Bill Box (<version>) APK` and `Wiz Bill Box (<version>) AAB`.
 
-## Play Store notes
+## Play Store
+
+All listing assets are ready: icon, feature graphic and 7 screenshots in `store-assets/`, listing text and release notes in `fastlane/metadata/android/en-US/`, and step-by-step Play Console answers (including the Data safety form) in [`store-assets/PLAY_CONSOLE_GUIDE.md`](store-assets/PLAY_CONSOLE_GUIDE.md). Regenerate art with `tools/StoreArt.java`. Screenshots use a debug-only demo mode (a `demo-mode` file in the app's storage turns off sync).
+
 
 - **Data safety:** photos and the bill details the user enters are stored in the user's own Google Drive (encrypted in transit). No data is collected by or shared with Wiz Labs. No ads and no analytics.
 - **Permissions:** `INTERNET` and `ACCESS_NETWORK_STATE` (for Drive). The camera is used through the system camera app, so the app doesn't request the camera permission. The gallery uses the system photo picker, so it doesn't request storage permission either.

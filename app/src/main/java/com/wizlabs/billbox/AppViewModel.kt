@@ -64,6 +64,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var syncJob: Job? = null
 
+    /**
+     * Store-screenshot mode: debug builds only, switched on by a `demo-mode` file in app storage.
+     * Sync is skipped so sample bills show as saved without a real Google account.
+     */
+    private val demoMode = (app.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0 &&
+        File(app.filesDir, "demo-mode").exists()
+
     init {
         if (data.value.account != null) requestSync()
     }
@@ -134,7 +141,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Uploads pending changes and pulls bills saved elsewhere. Silent: never shows Google's UI. */
     fun requestSync(delayMs: Long = 0) {
-        if (data.value.account == null) return
+        if (data.value.account == null || demoMode) return
         syncJob?.cancel()
         syncJob = viewModelScope.launch {
             if (delayMs > 0) delay(delayMs)
