@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- receipt -->
+    <path android:pathData="M36,30 Q36,27 39,27 L69,27 Q72,27 72,30 L72,79 L67.5,75.5 L63,79 L58.5,75.5 L54,79 L49.5,75.5 L45,79 L40.5,75.5 L36,79 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="36" android:startY="27" android:endX="72" android:endY="79">
+                <item android:offset="0" android:color="#FFFFE45C" />
+                <item android:offset="0.6" android:color="#FFFFD60A" />
+                <item android:offset="1" android:color="#FFFF9F0A" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- lines -->
+    <path android:fillColor="#FF1C1400" android:pathData="M42,36h18v3.2h-18z M42,43.5h24v3.2h-24z M42,51h14v3.2h-14z" />
+    <path android:fillColor="#991C1400" android:pathData="M42,61h10v3h-10z" />
+    <path android:fillColor="#FF1C1400" android:pathData="M57,60h9v5h-9z" />
+    <!-- cloud badge -->
+    <path android:fillColor="#FF141418" android:pathData="M74,68m-12,0a12,12 0,1 1,24 0a12,12 0,1 1,-24 0" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M68.5,72.5 L79.5,72.5 C81.7,72.5 83.2,71 83.2,69 C83.2,67.1 81.8,65.6 80,65.5 C79.5,62.9 77.3,61 74.6,61 C72.3,61 70.4,62.4 69.6,64.4 C67,64.5 65,66.4 65,68.7 C65,70.8 66.6,72.5 68.5,72.5 Z" />
+    <path android:strokeColor="#FF1E9E4A" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M71,67.8 L73.3,70 L77.3,65.8" />
+</vector>

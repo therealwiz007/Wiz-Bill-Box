@@ -1,0 +1,12 @@
+<resources>
+    <style name="Theme.WizBillBox" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/wiz_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <style name="Theme.Wiz.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/wiz_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.WizBillBox</item>
+    </style>
+</resources>
