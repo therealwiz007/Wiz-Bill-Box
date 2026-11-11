@@ -8,7 +8,7 @@ Drive sign-in only works once the Google Cloud project is set up (see the README
 2. OAuth consent screen: app name **Wiz Bill Box**, support email, privacy-policy URL (below), scopes `drive.file`, `email`, `profile`. Click **Publish app** (no verification is needed for `drive.file`; leave the logo empty so Google doesn't ask for brand verification).
 3. Create **Android** OAuth clients for `com.wizlabs.billbox` with these SHA-1s:
    - Upload key (shared Wiz keystore, alias `wizfueldensity`): `F1:81:C6:7C:2D:2B:C5:A2:41:CC:25:28:5D:D9:5D:37:E0:22:50:02`
-   - Play **App signing key**: Play Console › Test and release › App integrity (available after the first upload)
+   - Play **App signing key**: `80:3F:65:D4:62:D6:65:C3:F3:DB:06:A0:A5:E6:8F:66:DE:3D:02:B1` (Play Console › App integrity › App signing)
    - Debug (testing on this Mac): `C8:BF:06:F2:51:54:19:44:49:F2:4F:7C:20:E0:3E:FF:26:EB:8D:EE`
 
 ## 1. App details

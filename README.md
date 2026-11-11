@@ -51,8 +51,8 @@ Google only lets an app use Drive if the app's package name and signing certific
    | Build | Where to get the SHA-1 |
    |---|---|
    | Debug (this Mac) | `C8:BF:06:F2:51:54:19:44:49:F2:4F:7C:20:E0:3E:FF:26:EB:8D:EE` |
-   | Your release keystore | `keytool -list -v -keystore <your.jks> -alias <alias>` |
-   | Google Play | Play Console › Test and release › App integrity › **App signing key certificate** |
+   | Release keystore (upload key, alias `wizfueldensity`) | `F1:81:C6:7C:2D:2B:C5:A2:41:CC:25:28:5D:D9:5D:37:E0:22:50:02` |
+   | Google Play app signing key | `80:3F:65:D4:62:D6:65:C3:F3:DB:06:A0:A5:E6:8F:66:DE:3D:02:B1` |
 
    You don't need to put a client ID in the code. Google matches the app by package name and SHA-1.
 
