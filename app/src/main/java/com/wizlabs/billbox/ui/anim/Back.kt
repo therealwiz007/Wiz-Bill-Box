@@ -72,8 +72,11 @@ fun Modifier.backPeek(route: String): Modifier = composed {
     val peek = LocalBackPeek.current ?: return@composed this
     val px = with(LocalDensity.current) { 24.dp.toPx() }
     graphicsLayer {
-        val p = if (peek.route == route) peek.progress.value else 0f
-        if (p > 0f) {
+        val raw = if (peek.route == route) peek.progress.value else 0f
+        if (raw > 0f) {
+            // System progress grows slowly at first; ease-out so the peek is visible early in the swipe.
+            val q = 1f - raw
+            val p = 1f - q * q * q
             val s = 1f - 0.08f * p
             scaleX = s; scaleY = s
             translationX = (if (peek.fromLeft) 1f else -1f) * px * p
