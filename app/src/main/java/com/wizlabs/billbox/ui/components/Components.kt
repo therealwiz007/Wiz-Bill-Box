@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
 import com.wizlabs.billbox.ui.anim.enterUp
 import com.wizlabs.billbox.ui.anim.floating
+import com.wizlabs.billbox.ui.anim.rememberLoopTime
 import com.wizlabs.billbox.ui.anim.pressScale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -144,14 +145,13 @@ fun Pill(text: String, icon: ImageVector? = null, color: Color = Wiz.c.muted, bg
 
 @Composable
 fun SyncingIcon() {
-    // A cloud that gently bobs while a ring spins around it.
-    val t = rememberInfiniteTransition(label = "sync")
-    val turn by t.animateFloat(0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing)), label = "turn")
+    // A cloud that gently bobs while a ring spins around it (shared 30 fps loop clock, draw-phase only).
+    val t = rememberLoopTime(fast = true)
     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
         Icon(Icons.Rounded.CloudSync, "Syncing", tint = Wiz.c.accentInk, modifier = Modifier.size(20.dp).floating(1.5.dp, 900))
         CircularProgressIndicator(
             progress = { 0.28f }, strokeWidth = 2.5.dp, color = Wiz.c.accentInk, trackColor = Color.Transparent,
-            modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = turn },
+            modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = (t.floatValue % 1.1f) / 1.1f * 360f },
         )
     }
 }
@@ -192,10 +192,10 @@ fun BillImage(
 }
 
 @Composable
-fun EmptyBox(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier) {
+fun EmptyBox(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier, art: (@Composable () -> Unit)? = null) {
     val c = Wiz.c
     Column(modifier.fillMaxWidth().padding(32.dp).enterUp(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
+        if (art != null) art() else Box(
             Modifier.floating(7.dp).size(84.dp).clip(RoundedCornerShape(28.dp)).background(c.surface).border(1.dp, c.line, RoundedCornerShape(28.dp)),
             contentAlignment = Alignment.Center,
         ) { Icon(icon, null, tint = c.accentInk, modifier = Modifier.size(40.dp)) }
@@ -207,13 +207,14 @@ fun EmptyBox(icon: ImageVector, title: String, body: String, modifier: Modifier 
 }
 
 @Composable
-fun InfoRow(label: String, value: String, icon: ImageVector? = null) {
+fun InfoRow(label: String, value: String, icon: ImageVector? = null, mono: Boolean = false) {
     val c = Wiz.c
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) { Icon(icon, null, tint = c.muted, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(12.dp)) }
         Text(label, style = MaterialTheme.typography.bodyMedium, color = c.muted, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(12.dp))
         Text(value, style = MaterialTheme.typography.bodyLarge, color = c.text, fontWeight = FontWeight.Medium,
+            fontFamily = if (mono) androidx.compose.ui.text.font.FontFamily.Monospace else null,
             textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(1.4f))
     }
 }

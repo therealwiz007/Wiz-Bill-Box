@@ -1,6 +1,26 @@
 package com.wizlabs.billbox.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.wizlabs.billbox.ui.anim.pressScale
+import com.wizlabs.billbox.ui.anim.rememberHaptics
+import com.wizlabs.billbox.ui.art.EmptyTrayArt
+import com.wizlabs.billbox.ui.art.VaultOrbit
+import com.wizlabs.billbox.ui.art.VaultState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -157,15 +177,11 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(key = "banner") {
-                AnimatedVisibility(
-                    visible = data.account == null || sync is SyncState.NeedsSignIn || sync is SyncState.Failed,
-                    enter = expandVertically(Motion.smooth()) + fadeIn(), exit = shrinkVertically(Motion.smooth()) + fadeOut(),
-                ) { StatusBanner(data, sync, onSignIn, onRetry = { vm.requestSync() }) }
+            item(key = "hero") {
+                VaultHero(data, sync, soon.size, Modifier.enterUp(0, intro), onSignIn = onSignIn, onSync = { vm.requestSync() })
             }
 
             if (data.bills.isNotEmpty()) {
-                item(key = "summary") { Summary(data.bills, soon.size, Modifier.enterUp(0, intro)) }
                 item(key = "search") {
                     OutlinedTextField(
                         value = query, onValueChange = { query = it },
@@ -213,7 +229,7 @@ fun HomeScreen(
                         Icons.Rounded.ReceiptLong, "No bills yet",
                         if (sync is SyncState.Running) "Checking Google Drive for your bills…"
                         else "Tap “Add bill” to photograph your first receipt or invoice.",
-                        Modifier.padding(top = 40.dp),
+                        Modifier.padding(top = 8.dp), art = { EmptyTrayArt() },
                     )
                 }
             } else if (list.isEmpty()) {
@@ -240,31 +256,99 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val c = Wiz.c
-    FilterChip(
-        selected = selected, onClick = onClick, label = { Text(label) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = c.accent, selectedLabelColor = c.onAccent, containerColor = c.surface, labelColor = c.text,
-        ),
-        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected, borderColor = c.line, selectedBorderColor = c.accent),
-    )
+private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) = SmallChip(label, selected, onClick)
+
+private fun vaultState(data: AppData, sync: SyncState): VaultState = when {
+    data.account == null -> VaultState.LOCAL
+    sync is SyncState.Running -> VaultState.SYNCING
+    sync is SyncState.Failed -> VaultState.FAILED
+    sync is SyncState.NeedsSignIn || data.bills.any { it.dirty } -> VaultState.PENDING
+    else -> VaultState.SYNCED
 }
 
+/** The home hero: the animated bill vault plus what it means in words, and the one action that helps. */
 @Composable
-private fun Summary(bills: List<Bill>, soonCount: Int, modifier: Modifier = Modifier) {
+private fun VaultHero(data: AppData, sync: SyncState, soonCount: Int, modifier: Modifier = Modifier, onSignIn: () -> Unit, onSync: () -> Unit) {
     val c = Wiz.c
-    val year = LocalDate.now().year
-    val thisYear = bills.filter { it.invoiceDate.year == year }
-    val spent = thisYear.sumOf { it.amount ?: 0.0 }
-    val active = bills.count { b -> b.warrantyUntil?.let { !it.isBefore(LocalDate.now()) } == true }
-    WizCard(modifier) {
-        Row(Modifier.fillMaxWidth()) {
-            CountStat("Bills", bills.size.toDouble(), { it.roundToInt().toString() }, Modifier.weight(1f))
-            if (spent > 0) CountStat("Spent in $year", spent, { Fmt.rupees(it) }, Modifier.weight(1.5f))
-            else Stat("Spent in $year", "—", Modifier.weight(1.5f))
-            Stat("Warranties", if (soonCount > 0) "$active · $soonCount soon" else active.toString(), Modifier.weight(1.2f),
-                color = if (soonCount > 0) c.warn else c.text)
+    val haptics = rememberHaptics()
+    val state = vaultState(data, sync)
+    val pending = data.bills.count { it.dirty }
+    val n = data.bills.size
+    fun bills(k: Int) = "$k bill${if (k == 1) "" else "s"}"
+    val tint by animateColorAsState(
+        when (state) {
+            VaultState.SYNCED -> c.good; VaultState.SYNCING, VaultState.INTRO -> c.accentInk
+            VaultState.PENDING, VaultState.LOCAL -> c.warn; VaultState.FAILED -> c.bad
+        }, tween(500), label = "heroTint",
+    )
+    val (over, title, body) = when (state) {
+        VaultState.LOCAL -> Triple("Only on this phone", if (n == 0) "Start your box" else bills(n), "Sign in with Google to keep every bill safe in your Drive.")
+        VaultState.SYNCING -> Triple("Syncing with Drive", if (n == 0) "Looking for bills" else bills(n), "Uploading and fetching bills…")
+        VaultState.FAILED -> Triple("Sync problem", if (pending > 0) "${bills(pending)} not uploaded" else "Couldn't reach Drive", (sync as? SyncState.Failed)?.message ?: "")
+        VaultState.PENDING -> Triple(
+            if (sync is SyncState.NeedsSignIn) "Sign in again" else "Waiting to upload",
+            if (pending > 0) "${bills(pending)} to upload" else bills(n),
+            if (sync is SyncState.NeedsSignIn) "Google needs you to sign in before sync can continue." else "They'll go to Drive on the next sync.",
+        )
+        else -> Triple("All safe in Drive", if (n == 0) "Your box is ready" else bills(n),
+            data.lastSyncAt?.let { "Synced ${Fmt.ago(it)}" } ?: "Backed up to Google Drive")
+    }
+    val action: Pair<String, () -> Unit>? = when (state) {
+        VaultState.LOCAL -> "Sign in" to onSignIn
+        VaultState.FAILED -> "Retry" to onSync
+        VaultState.PENDING -> if (sync is SyncState.NeedsSignIn) "Sign in" to onSignIn else "Sync now" to onSync
+        VaultState.SYNCED -> "Sync" to onSync
+        else -> null
+    }
+    Surface(
+        modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp), color = c.surface, border = BorderStroke(1.dp, c.line),
+    ) {
+        Column(
+            Modifier.drawBehind {
+                drawRect(Brush.verticalGradient(listOf(tint.copy(alpha = 0.13f), Color.Transparent), endY = size.height * 0.8f))
+            }.padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                VaultOrbit(state, size = 124.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    AnimatedContent(over to title, transitionSpec = {
+                        (fadeIn(tween(260, 80)) + slideInVertically(tween(320)) { it / 3 }) togetherWith (fadeOut(tween(160)) + slideOutVertically(tween(220)) { -it / 3 })
+                    }, label = "heroTitle") { (o, t) ->
+                        Column {
+                            Overline(o, color = tint)
+                            Spacer(Modifier.height(2.dp))
+                            Text(t, style = MaterialTheme.typography.headlineSmall.merge(Numeric), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    AnimatedContent(body, transitionSpec = { fadeIn(tween(300, 60)) togetherWith fadeOut(tween(150)) }, label = "heroBody") { b ->
+                        Text(b, style = MaterialTheme.typography.bodySmall, color = c.muted, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    }
+                    AnimatedVisibility(action != null, enter = fadeIn() + expandVertically(Motion.smooth()), exit = fadeOut() + shrinkVertically(Motion.smooth())) {
+                        val press = remember { MutableInteractionSource() }
+                        val a = action
+                        Button(
+                            onClick = { haptics.tap(); a?.second?.invoke() }, interactionSource = press,
+                            modifier = Modifier.padding(top = 10.dp).height(36.dp).pressScale(press, 0.94f),
+                            shape = CircleShape, contentPadding = PaddingValues(horizontal = 16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = c.accent, contentColor = c.onAccent),
+                        ) { Text(a?.first ?: "", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge) }
+                    }
+                }
+            }
+            if (n > 0) {
+                val year = LocalDate.now().year
+                val spent = data.bills.filter { it.invoiceDate.year == year }.sumOf { it.amount ?: 0.0 }
+                val active = data.bills.count { b -> b.warrantyUntil?.let { !it.isBefore(LocalDate.now()) } == true }
+                HorizontalDivider(Modifier.padding(vertical = 12.dp), color = c.line)
+                Row(Modifier.fillMaxWidth()) {
+                    if (spent > 0) CountStat("Spent in $year", spent, { Fmt.rupees(it) }, Modifier.weight(1.4f))
+                    else Stat("Spent in $year", "—", Modifier.weight(1.4f))
+                    Stat("Warranties", if (soonCount > 0) "$active · $soonCount soon" else active.toString(), Modifier.weight(1f),
+                        color = if (soonCount > 0) c.warn else c.text)
+                }
+            }
         }
     }
 }
@@ -291,12 +375,13 @@ private fun Stat(label: String, value: String, modifier: Modifier, color: androi
 @Composable
 private fun WarrantyCard(vm: AppViewModel, soon: List<Bill>, onOpen: (Bill) -> Unit, modifier: Modifier = Modifier) {
     val c = Wiz.c
-    // The hourglass flips over every few seconds.
-    val reduce = LocalReduceMotion.current
+    // The hourglass flips over a few times after each touch, then rests (no endless 60 fps spring).
+    val allowed = com.wizlabs.billbox.ui.anim.rememberLoopsAllowed()
+    val touches = com.wizlabs.billbox.ui.anim.LoopIdle.touches
     val flip = remember { Animatable(0f) }
-    LaunchedEffect(reduce) {
-        if (reduce) return@LaunchedEffect
-        while (true) { delay(2600); flip.animateTo(flip.value + 180f, spring(dampingRatio = 0.5f, stiffness = 200f)) }
+    LaunchedEffect(allowed, touches) {
+        if (!allowed) return@LaunchedEffect
+        repeat(3) { delay(2600); flip.animateTo(flip.value + 180f, spring(dampingRatio = 0.5f, stiffness = 200f)) }
     }
     WizCard(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -313,50 +398,6 @@ private fun WarrantyCard(vm: AppViewModel, soon: List<Bill>, onOpen: (Bill) -> U
                 Text(b.product, color = c.text, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(Fmt.warranty(b.warrantyUntil!!).removePrefix("Warranty "), color = c.warn, style = MaterialTheme.typography.labelLarge)
             }
-        }
-    }
-}
-
-@Composable
-private fun StatusBanner(data: AppData, sync: SyncState, onSignIn: () -> Unit, onRetry: () -> Unit) {
-    val c = Wiz.c
-    val pending = data.bills.count { it.dirty }
-    when {
-        data.account == null -> Banner(
-            Icons.Rounded.CloudOff, c.warn,
-            "Bills are only on this phone",
-            "Sign in with Google to keep them safe in Drive and get them back on any phone.",
-            "Sign in", onSignIn,
-        )
-        sync is SyncState.NeedsSignIn -> Banner(
-            Icons.Rounded.Login, c.warn, "Google needs you to sign in again",
-            if (pending > 0) "$pending bill${if (pending == 1) "" else "s"} waiting to upload." else "Sync is paused until you do.",
-            "Sign in", onSignIn,
-        )
-        sync is SyncState.Failed -> Banner(
-            Icons.Rounded.ErrorOutline, c.bad,
-            if (pending > 0) "$pending bill${if (pending == 1) "" else "s"} not uploaded yet" else "Couldn't reach Google Drive",
-            sync.message, "Retry", onRetry,
-        )
-        else -> {}
-    }
-}
-
-@Composable
-private fun Banner(
-    icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color,
-    title: String, body: String, action: String, onAction: () -> Unit,
-) {
-    val c = Wiz.c
-    WizCard {
-        Row(verticalAlignment = Alignment.Top) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = c.text, fontWeight = FontWeight.Bold)
-                Text(body, style = MaterialTheme.typography.bodySmall, color = c.muted)
-            }
-            TextButton(onClick = onAction) { Text(action, color = c.accentInk, fontWeight = FontWeight.Bold) }
         }
     }
 }

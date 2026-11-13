@@ -21,7 +21,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import com.wizlabs.billbox.ui.anim.Motion
 import com.wizlabs.billbox.ui.anim.enterUp
 import com.wizlabs.billbox.ui.anim.pressScale
-import com.wizlabs.billbox.ui.anim.rememberPulse
+import com.wizlabs.billbox.ui.anim.pulseBorder
+import com.wizlabs.billbox.ui.anim.rememberHaptics
+import androidx.compose.material.icons.rounded.Check
 import com.wizlabs.billbox.ui.anim.shakeOn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -182,8 +184,9 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
     val amountBad = amount.isNotBlank() && amountValue == null
     val valid = store.isNotBlank() && product.isNotBlank() && !amountBad && importing == 0
 
+    val haptics = rememberHaptics()
     fun save() {
-        if (!valid) { showErrors = true; shake++; return }
+        if (!valid) { showErrors = true; shake++; haptics.reject(); return }
         val base = existing ?: Bill(store = "", product = "", invoiceDate = date)
         val bill = base.copy(
             store = store.trim(), product = product.trim(), invoiceDate = date, amount = amountValue,
@@ -204,8 +207,9 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
                 navigationIcon = { IconButton(onClick = { if (changed) confirmDiscard = true else cancel() }) { Icon(Icons.Rounded.Close, "Close") } },
                 actions = {
                     Button(
-                        onClick = ::save, enabled = importing == 0,
-                        colors = ButtonDefaults.buttonColors(containerColor = c.accent, contentColor = c.onAccent),
+                        onClick = ::save, enabled = importing == 0, shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = c.accent, contentColor = c.onAccent,
+                            disabledContainerColor = c.surface2, disabledContentColor = c.muted),
                         modifier = Modifier.padding(end = 8.dp),
                     ) { Text("Save", fontWeight = FontWeight.Bold) }
                 },
@@ -361,10 +365,9 @@ fun BillEditor(vm: AppViewModel, existing: Bill?, knownStores: List<String>, onD
 private fun AddTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     val c = Wiz.c
     val press = remember { MutableInteractionSource() }
-    val glow = rememberPulse(0.35f, 0.75f, 2200)
     Column(
         Modifier.pressScale(press, 0.93f).size(width = 110.dp, height = 140.dp).clip(RoundedCornerShape(16.dp)).background(c.surface)
-            .border(1.5.dp, c.accentInk.copy(alpha = glow), RoundedCornerShape(16.dp))
+            .pulseBorder(c.accentInk, 16.dp)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
@@ -413,11 +416,23 @@ private fun DateBox(label: String, value: String, onClick: () -> Unit) {
 @Composable
 fun SmallChip(label: String, selected: Boolean, onClick: () -> Unit) {
     val c = Wiz.c
+    val haptics = rememberHaptics()
     FilterChip(
-        selected = selected, onClick = onClick, label = { Text(label) },
+        selected = selected, onClick = { haptics.tick(); onClick() }, label = { Text(label) },
+        leadingIcon = if (selected) {
+            {
+                // the check pops in with a little overshoot
+                val pop = remember { Animatable(0f) }
+                LaunchedEffect(Unit) { pop.animateTo(1f, Motion.bouncy()) }
+                Icon(Icons.Rounded.Check, null, tint = c.onAccent,
+                    modifier = Modifier.size(18.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; rotationZ = (1f - pop.value) * -45f })
+            }
+        } else null,
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = c.accent, selectedLabelColor = c.onAccent, containerColor = c.surface, labelColor = c.text,
+            selectedLeadingIconColor = c.onAccent,
         ),
         border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected, borderColor = c.line, selectedBorderColor = c.accent),
+        shape = RoundedCornerShape(12.dp),
     )
 }

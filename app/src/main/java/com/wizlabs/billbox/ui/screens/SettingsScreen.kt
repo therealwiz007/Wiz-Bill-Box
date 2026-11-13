@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.webkit.WebView
 import androidx.activity.compose.BackHandler
+import com.wizlabs.billbox.ui.anim.WizBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -60,6 +61,15 @@ import com.wizlabs.billbox.ui.components.IconBadge
 import com.wizlabs.billbox.ui.components.Overline
 import com.wizlabs.billbox.ui.components.WizCard
 import com.wizlabs.billbox.ui.theme.Wiz
+import com.wizlabs.billbox.ui.anim.rememberHaptics
+import com.wizlabs.billbox.ui.anim.enterUp
+import com.wizlabs.billbox.ui.art.VaultOrbit
+import com.wizlabs.billbox.ui.art.VaultState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -70,7 +80,8 @@ fun SettingsScreen(
     val c = Wiz.c
     val context = LocalContext.current
     var confirmSignOut by remember { mutableStateOf(false) }
-    BackHandler(onBack = onBack)
+    val haptics = rememberHaptics()
+    WizBackHandler("settings", onBack = onBack)
 
     Scaffold(
         containerColor = c.bg,
@@ -87,7 +98,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Overline("Google Drive")
-            WizCard {
+            WizCard(Modifier.enterUp(1)) {
                 val acc = data.account
                 if (acc == null) {
                     Text("Not signed in", style = MaterialTheme.typography.titleMedium, color = c.text)
@@ -110,18 +121,26 @@ fun SettingsScreen(
                     HorizontalDivider(Modifier.padding(vertical = 12.dp), color = c.line)
                     val pending = data.bills.count { it.dirty }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.CloudSync, null, tint = c.accentInk)
+                        VaultOrbit(
+                            when {
+                                sync == SyncState.Running -> VaultState.SYNCING
+                                sync is SyncState.Failed -> VaultState.FAILED
+                                sync == SyncState.NeedsSignIn || pending > 0 -> VaultState.PENDING
+                                else -> VaultState.SYNCED
+                            }, size = 60.dp,
+                        )
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(
+                            val head = 
                                 when (sync) {
                                     SyncState.Running -> "Syncing…"
                                     is SyncState.Failed -> "Last sync failed"
                                     SyncState.NeedsSignIn -> "Sign in again to sync"
                                     else -> data.lastSyncAt?.let { "Synced ${Fmt.ago(it)}" } ?: "Not synced yet"
-                                },
-                                style = MaterialTheme.typography.titleSmall, color = c.text,
-                            )
+                                }
+                            AnimatedContent(head, transitionSpec = { fadeIn(tween(260, 60)) togetherWith fadeOut(tween(140)) }, label = "syncHead") { h ->
+                                Text(h, style = MaterialTheme.typography.titleSmall, color = c.text)
+                            }
                             Text(
                                 if (sync is SyncState.Failed) sync.message
                                 else if (pending > 0) "$pending bill${if (pending == 1) "" else "s"} waiting to upload"
@@ -129,7 +148,7 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodySmall, color = c.muted,
                             )
                         }
-                        TextButton(onClick = { if (sync is SyncState.NeedsSignIn) onSignIn() else vm.requestSync() }, enabled = sync != SyncState.Running) {
+                        TextButton(onClick = { haptics.tap(); if (sync is SyncState.NeedsSignIn) onSignIn() else vm.requestSync() }, enabled = sync != SyncState.Running) {
                             Text("Sync now", color = c.accentInk, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -152,7 +171,7 @@ fun SettingsScreen(
             }
 
             Overline("Warranty reminder", Modifier.padding(top = 8.dp))
-            WizCard {
+            WizCard(Modifier.enterUp(2)) {
                 Text("Show “ending soon” for warranties ending within", style = MaterialTheme.typography.bodyMedium, color = c.text)
                 Spacer(Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -161,7 +180,7 @@ fun SettingsScreen(
             }
 
             Overline("Appearance", Modifier.padding(top = 8.dp))
-            WizCard {
+            WizCard(Modifier.enterUp(3)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SmallChip("System", data.theme == ThemeMode.SYSTEM) { vm.setTheme(ThemeMode.SYSTEM) }
                     SmallChip("Dark", data.theme == ThemeMode.DARK) { vm.setTheme(ThemeMode.DARK) }
@@ -170,7 +189,7 @@ fun SettingsScreen(
             }
 
             Overline("About", Modifier.padding(top = 8.dp))
-            WizCard(onClick = onPrivacy) {
+            WizCard(Modifier.enterUp(4), onClick = onPrivacy) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Policy, null, tint = c.accentInk)
                     Spacer(Modifier.width(10.dp))
@@ -193,7 +212,7 @@ fun SettingsScreen(
                     else "Bills are removed from this phone but stay in your Google Drive. Sign in again (with any phone) to get them back."
                 )
             },
-            confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text("Sign out", color = c.bad) } },
+            confirmButton = { TextButton(onClick = { haptics.reject(); confirmSignOut = false; vm.signOut() }) { Text("Sign out", color = c.bad) } },
             dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } },
         )
     }
@@ -204,7 +223,7 @@ fun SettingsScreen(
 @Composable
 fun PrivacyScreen(onBack: () -> Unit) {
     val c = Wiz.c
-    BackHandler(onBack = onBack)
+    WizBackHandler("privacy", onBack = onBack)
     Scaffold(
         containerColor = c.bg,
         topBar = {

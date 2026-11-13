@@ -1,0 +1,7 @@
+Wiz Bill Box 1.1.0, a fresh new look:
+• Animated bill vault shows your Drive backup at a glance
+• A receipt prints and gets stamped when you save a bill
+• Amounts roll like an odometer when they change
+• Predictive back: screens shrink as you swipe back
+• Gentle haptics, smoother status text, new empty-box art
+• Faster start, smaller download, lighter on battery

@@ -4,18 +4,23 @@ package com.wizlabs.billbox.ui.anim
 
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -73,8 +78,9 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
 fun rememberReduceMotion(): Boolean {
     val ctx = LocalContext.current
     return remember {
-        runCatching { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
-            .getOrDefault(false)
+        !android.animation.ValueAnimator.areAnimatorsEnabled() ||
+            runCatching { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+                .getOrDefault(false)
     }
 }
 
@@ -144,54 +150,47 @@ fun Modifier.enterUp(index: Int = 0, enabled: Boolean = true, distance: Dp = 28.
     }
 }
 
-/** Gentle endless bob up and down (logos, empty states). */
-fun Modifier.floating(amplitude: Dp = 6.dp, periodMs: Int = 2600): Modifier = composed {
-    if (LocalReduceMotion.current) return@composed this
-    val px = with(LocalDensity.current) { amplitude.toPx() }
-    val t = rememberInfiniteTransition(label = "float")
-    val y by t.animateFloat(-1f, 1f, infiniteRepeatable(tween(periodMs / 2, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "y")
-    graphicsLayer { translationY = y * px }
-}
-
-/** A soft highlight that sweeps across the content every few seconds (primary buttons). */
-fun Modifier.shimmer(color: Color = Color.White.copy(alpha = 0.35f), periodMs: Int = 2800): Modifier = composed {
-    if (LocalReduceMotion.current) return@composed this
-    val t = rememberInfiniteTransition(label = "shimmer")
-    val x by t.animateFloat(-0.6f, 1.8f, infiniteRepeatable(tween(periodMs, easing = LinearEasing)), label = "x")
-    drawWithContent {
-        drawContent()
-        val w = size.width
-        val cx = x * w
-        drawRect(
-            Brush.linearGradient(
-                listOf(Color.Transparent, color, Color.Transparent),
-                start = Offset(cx - w * 0.25f, 0f), end = Offset(cx + w * 0.25f, size.height),
-            ),
-        )
-    }
-}
-
-/** Slow breathing pulse of scale/alpha (glows, "ending soon" dots). */
-@Composable
-fun rememberPulse(min: Float = 0.85f, max: Float = 1.15f, periodMs: Int = 1800): Float {
-    if (LocalReduceMotion.current) return 1f
-    val t = rememberInfiniteTransition(label = "pulse")
-    val v by t.animateFloat(min, max, infiniteRepeatable(tween(periodMs / 2, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "p")
-    return v
-}
-
-/** Counts a number up from zero the first time it is shown and glides to new values after that. */
+/**
+ * Shows a number that counts up from zero the first time and rolls to new values after that.
+ * Only the digits that change slide (one short AnimatedContent per character), so it costs a few
+ * frames instead of recomposing and re-formatting the whole text every frame.
+ */
 @Composable
 fun CountUpText(value: Double, format: (Double) -> String, style: TextStyle, color: Color, modifier: Modifier = Modifier, maxLines: Int = 1) {
     val reduce = LocalReduceMotion.current
-    val anim = remember { Animatable(if (reduce) value.toFloat() else 0f) }
-    LaunchedEffect(value) {
-        if (reduce) anim.snapTo(value.toFloat())
-        else anim.animateTo(value.toFloat(), tween(900, easing = FastOutSlowInEasing))
+    var shown by remember { mutableStateOf(if (reduce) value else 0.0) }
+    LaunchedEffect(value) { if (!reduce) withFrameNanos { }; shown = value }
+    RollingNumber(format(shown), style, color, modifier, rising = value >= 0)
+}
+
+/**
+ * Text whose characters roll vertically when they change (odometer style). Characters are matched
+ * from the right, so "₹950" → "₹1,200" rolls the units, tens and hundreds and slides the new ones in.
+ */
+@Composable
+fun RollingNumber(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier, rising: Boolean = true) {
+    if (LocalReduceMotion.current) { Text(text, modifier = modifier, style = style, color = color, maxLines = 1); return }
+    var prev by remember { mutableStateOf(text) }
+    val up = remember(text) { rising && text.filter(Char::isDigit).let { n -> n.length > prev.filter(Char::isDigit).length || (n.length == prev.filter(Char::isDigit).length && n >= prev.filter(Char::isDigit)) } }
+    LaunchedEffect(text) { prev = text }
+    Row(modifier) {
+        val n = text.length
+        for (i in 0 until n) {
+            val ch = text[i]
+            // key by position from the right so units stay units when the length changes
+            androidx.compose.runtime.key(n - i) {
+                AnimatedContent(
+                    ch,
+                    transitionSpec = {
+                        val dir = if (up) 1 else -1
+                        (slideInVertically(spring(dampingRatio = 0.8f, stiffness = 500f)) { dir * it / 2 } + fadeIn(tween(160))) togetherWith
+                            (slideOutVertically(tween(160)) { -dir * it / 2 } + fadeOut(tween(120))) using SizeTransform(clip = false)
+                    },
+                    label = "digit",
+                ) { c -> Text(c.toString(), style = style, color = color, maxLines = 1) }
+            }
+        }
     }
-    // Show the exact value once settled so paise never look rounded.
-    val shown = if (anim.value == value.toFloat()) value else anim.value.toDouble()
-    Text(format(shown), modifier = modifier, style = style, color = color, maxLines = maxLines)
 }
 
 /** Shakes horizontally once each time [trigger] changes (form errors). */
@@ -205,60 +204,3 @@ fun Modifier.shakeOn(trigger: Int): Modifier = composed {
     graphicsLayer { translationX = dx.value * px }
 }
 
-// ---------- "Saved!" celebration ----------
-
-/**
- * A yellow disc pops in, a tick draws itself, and confetti bursts outward. Calls [onDone] after ~1.4 s.
- */
-@Composable
-fun SavedBurst(label: String, onDone: () -> Unit) {
-    val c = Wiz.c
-    val reduce = LocalReduceMotion.current
-    val disc = remember { Animatable(0f) }
-    val tick = remember { Animatable(0f) }
-    val burst = remember { Animatable(0f) }
-    val fade = remember { Animatable(1f) }
-    LaunchedEffect(Unit) {
-        if (reduce) { disc.snapTo(1f); tick.snapTo(1f); delay(700); onDone(); return@LaunchedEffect }
-        launch { disc.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f)) }
-        launch { delay(120); burst.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
-        delay(180)
-        tick.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
-        delay(520)
-        fade.animateTo(0f, tween(260))
-        onDone()
-    }
-    val confetti = listOf(c.accent, c.accent2, c.good, Color.White, c.accent, c.warn)
-    Box(Modifier.size(220.dp).graphicsLayer { alpha = fade.value }, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(220.dp)) {
-            val center = Offset(size.width / 2, size.height / 2)
-            val r = size.minDimension * 0.22f
-            // confetti
-            val n = 14
-            for (i in 0 until n) {
-                val a = (i / n.toFloat()) * 2 * Math.PI + 0.3
-                val d = r * (1.1f + 1.4f * burst.value) * (if (i % 2 == 0) 1f else 0.78f)
-                val p = Offset(center.x + (cos(a) * d).toFloat(), center.y + (sin(a) * d).toFloat())
-                val dotR = (if (i % 3 == 0) 7f else 5f) * (1f - burst.value * 0.7f)
-                drawCircle(confetti[i % confetti.size].copy(alpha = (1f - burst.value).coerceIn(0f, 1f)), dotR.dp.toPx() / 2, p)
-            }
-            // glow + disc
-            drawCircle(c.accent.copy(alpha = 0.25f * disc.value), r * 1.45f * disc.value, center)
-            drawCircle(c.accent, r * disc.value, center)
-            // tick drawn progressively
-            val path = Path().apply {
-                moveTo(center.x - r * 0.42f, center.y + r * 0.02f)
-                lineTo(center.x - r * 0.10f, center.y + r * 0.34f)
-                lineTo(center.x + r * 0.46f, center.y - r * 0.30f)
-            }
-            val pm = PathMeasure().apply { setPath(path, false) }
-            val seg = Path()
-            pm.getSegment(0f, pm.length * tick.value, seg, true)
-            drawPath(seg, c.onAccent, style = Stroke(width = r * 0.17f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        }
-        Text(
-            label, style = MaterialTheme.typography.titleMedium, color = c.text,
-            modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = tick.value; translationY = (1f - tick.value) * 20f },
-        )
-    }
-}

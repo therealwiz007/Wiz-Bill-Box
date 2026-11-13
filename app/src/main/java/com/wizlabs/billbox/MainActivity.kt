@@ -68,10 +68,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wizlabs.billbox.ui.anim.BackPeek
+import com.wizlabs.billbox.ui.anim.LocalBackPeek
+import com.wizlabs.billbox.ui.anim.backPeek
 import com.wizlabs.billbox.ui.anim.LocalReduceMotion
 import com.wizlabs.billbox.ui.anim.LocalSharedScope
 import com.wizlabs.billbox.ui.anim.ProvideNavScope
-import com.wizlabs.billbox.ui.anim.SavedBurst
+import com.wizlabs.billbox.ui.anim.ProvideLoopClock
+import com.wizlabs.billbox.ui.anim.pressScale
+import com.wizlabs.billbox.ui.anim.rememberHaptics
+import com.wizlabs.billbox.ui.art.ReceiptPrint
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import com.wizlabs.billbox.ui.anim.enterUp
 import com.wizlabs.billbox.ui.anim.rememberReduceMotion
 import com.wizlabs.billbox.ui.components.SyncingIcon
@@ -100,10 +107,15 @@ class MainActivity : ComponentActivity() {
                         else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.BLACK)
                         enableEdgeToEdge(statusBarStyle = bar, navigationBarStyle = bar)
                     }
-                    App(vm)
+                    ProvideLoopClock { App(vm) }
                 }
             }
         }
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) com.wizlabs.billbox.ui.anim.LoopIdle.onTouch()
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onResume() {
@@ -178,6 +190,9 @@ private fun App(vm: AppViewModel) {
     var route by rememberSaveable { mutableStateOf("home") }
     var burst by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState() // kept here so the list keeps its scroll position across screens
+    val peek = remember { BackPeek() }
+    // Once the back transition has played, drop the peek so the next visit starts full size.
+    LaunchedEffect(route) { kotlinx.coroutines.delay(650); if (peek.route != null && peek.route != route) peek.reset() }
 
     val consentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
         vm.onConsentResult(r.resultCode == Activity.RESULT_OK, r.data)
@@ -194,13 +209,14 @@ private fun App(vm: AppViewModel) {
 
     Box(Modifier.fillMaxSize().background(c.bg)) {
         SharedTransitionLayout {
-            CompositionLocalProvider(LocalSharedScope provides this) {
+            CompositionLocalProvider(LocalSharedScope provides this, LocalBackPeek provides peek) {
                 AnimatedContent(
                     if (showWelcome) "welcome" else route,
                     transitionSpec = { navTransition(reduce) },
                     label = "nav",
                 ) { r ->
                     ProvideNavScope(this) {
+                      Box(Modifier.fillMaxSize().backPeek(r)) {
                         when {
                             r == "welcome" -> WelcomeScreen(signingIn, onSignIn = vm::signIn, onSkip = vm::skipSignIn, onPrivacy = { route = "privacy" })
                             r == "privacy" -> PrivacyScreen { route = "home" }
@@ -223,6 +239,7 @@ private fun App(vm: AppViewModel) {
                             }
                             else -> HomeScaffold(vm, data, sync, snack, listState, onRoute = { route = it })
                         }
+                      }
                     }
                 }
             }
@@ -230,7 +247,7 @@ private fun App(vm: AppViewModel) {
         if (showWelcome || route != "home") {
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
-        burst?.let { label -> Box(Modifier.align(Alignment.Center)) { SavedBurst(label) { burst = null } } }
+        burst?.let { label -> ReceiptPrint(label) { burst = null } }
     }
 }
 
@@ -242,6 +259,8 @@ private fun HomeScaffold(
 ) {
     val c = Wiz.c
     val expanded = listState.expandFab()
+    val haptics = rememberHaptics()
+    val fabPress = remember { MutableInteractionSource() }
     Scaffold(
         containerColor = c.bg,
         topBar = {
@@ -276,10 +295,10 @@ private fun HomeScaffold(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { onRoute("new") }, expanded = expanded,
+                onClick = { haptics.tap(); onRoute("new") }, expanded = expanded, interactionSource = fabPress,
                 containerColor = c.accent, contentColor = c.onAccent,
                 icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Add bill", fontWeight = FontWeight.Bold) },
-                modifier = Modifier.enterUp(index = 3, distance = 40.dp),
+                modifier = Modifier.enterUp(index = 3, distance = 40.dp).pressScale(fabPress, 0.92f),
             )
         },
         snackbarHost = { SnackbarHost(snack) },

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import com.wizlabs.billbox.ui.anim.WizBackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -89,7 +90,8 @@ import com.wizlabs.billbox.ui.theme.Wiz
 import java.time.LocalDate
 import com.wizlabs.billbox.ui.anim.CountUpText
 import com.wizlabs.billbox.ui.anim.enterUp
-import com.wizlabs.billbox.ui.anim.rememberPulse
+import com.wizlabs.billbox.ui.anim.pulseScale
+import com.wizlabs.billbox.ui.anim.rememberHaptics
 import com.wizlabs.billbox.ui.anim.sharedBoundsHero
 import com.wizlabs.billbox.ui.anim.sharedHero
 import kotlin.math.absoluteValue
@@ -100,8 +102,9 @@ fun BillDetail(vm: AppViewModel, bill: Bill, signedIn: Boolean, onBack: () -> Un
     val c = Wiz.c
     val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
     var viewer by remember { mutableStateOf<Int?>(null) }
-    BackHandler(onBack = onBack)
+    WizBackHandler("detail:${bill.id}", onBack = onBack)
 
     Scaffold(
         containerColor = c.bg,
@@ -171,19 +174,18 @@ fun BillDetail(vm: AppViewModel, bill: Bill, signedIn: Boolean, onBack: () -> Un
                 InfoRow("Store", bill.store, Icons.Rounded.Storefront)
                 InfoRow("Invoice date", Fmt.date(bill.invoiceDate), Icons.Rounded.CalendarMonth)
                 bill.amount?.let { InfoRow("Amount", Fmt.rupees(it), Icons.Rounded.CurrencyRupee) }
-                if (bill.invoiceNumber.isNotBlank()) InfoRow("Invoice no.", bill.invoiceNumber, Icons.Rounded.Numbers)
+                if (bill.invoiceNumber.isNotBlank()) InfoRow("Invoice no.", bill.invoiceNumber, Icons.Rounded.Numbers, mono = true)
                 bill.paymentMode?.let { InfoRow("Paid by", it.label, Icons.Rounded.Payments) }
                 bill.category?.let { InfoRow("Category", it.label, it.icon()) }
-                if (bill.gstin.isNotBlank()) InfoRow("GSTIN", bill.gstin)
+                if (bill.gstin.isNotBlank()) InfoRow("GSTIN", bill.gstin, mono = true)
             }
 
             bill.warrantyUntil?.let { w ->
                 val active = !w.isBefore(LocalDate.now())
-                val beat = if (active) rememberPulse(0.9f, 1.12f, 1600) else 1f
                 WizCard(Modifier.enterUp(3)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Verified, null, tint = if (active) c.good else c.muted,
-                            modifier = Modifier.graphicsLayer { scaleX = beat; scaleY = beat })
+                            modifier = Modifier.pulseScale(0.9f, 1.12f, 1600, enabled = active))
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text("Warranty until ${Fmt.date(w)}", style = MaterialTheme.typography.titleSmall, color = c.text, fontWeight = FontWeight.Bold)
@@ -251,7 +253,7 @@ fun BillDetail(vm: AppViewModel, bill: Bill, signedIn: Boolean, onBack: () -> Un
                     else "It will be removed from this phone."
                 )
             },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; vm.deleteBill(bill.id); onBack() }) { Text("Delete", color = c.bad) } },
+            confirmButton = { TextButton(onClick = { haptics.reject(); confirmDelete = false; vm.deleteBill(bill.id); onBack() }) { Text("Delete", color = c.bad) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
     }
