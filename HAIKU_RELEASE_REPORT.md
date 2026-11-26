@@ -1,6 +1,6 @@
 # HAIKU release report: Wiz Bill Box 2.0.0 (5)
 
-Date: 2026-11-26. Status: **release saved in Play, NOT sent for review.** Data safety / App content not verified.
+Date: 2026-11-26. Status: **submitted to Google for review (2026-11-26, "Changes in review"). Approval pending.** Play quick checks were still running at submit time.
 
 ## Version and build
 - applicationId `com.wizlabs.billbox`, versionName 2.0.0, versionCode 5, minSdk 26, targetSdk 36, compileSdk 36 (`app/build.gradle.kts`).
@@ -44,8 +44,13 @@ Date: 2026-11-26. Status: **release saved in Play, NOT sent for review.** Data s
 - Previous release 4 (1.1.0) remains live on this track until 5 is sent and approved.
 
 ## Not done (outstanding)
-1. **Data safety / App content not checked.** The paste asks to re-check Data safety (new reminders and PDF bills stored in the user's Drive), Ads = No, the notification rationale and target audience. These were NOT opened in Play Console in this run. Sending for review before that check is risky.
-2. **Not sent for review.** Publishing overview "Submit 4 changes for review" is still pending.
+1. Data safety updated and saved, then submitted with the rest:
+   - Added Files and docs: Collected, not ephemeral, optional, App functionality (same as Photos; PDF bills go to the user's Drive).
+   - Removed Financial info > Purchase history (no billing SDK in code).
+   - Kept Email address, Photos, App activity (Other user-generated content) as declared for 1.1.0.
+   - Not re-checked: Name (not selected; code sends only the sign-in token), Account creation (\"does not allow users to create an account\" kept), Delete data URL (points to github.io/Wiz-Bill-Box/privacy; check it describes deletion).
+   - Ads, notification rationale, target audience: not opened in this run.
+2. Submitted 5 changes for review (closed testing release 5 + 3 store listing items + Data safety).
 3. Production: not applied. Needs an explicit user yes. Play says 12 testers opted in for 10 days; 14 days required.
 4. Cold start on emulator 2.1 s vs 1.2 s target (from STATUS.md). Not re-measured.
 5. Sonnet untested items (Google sign-in/Drive, notification tap, reboot, PDF picker, CSV in spreadsheet, tablet, RTL, TalkBack, API 26/29) unchanged from SONNET_TO_HAIKU.md.
