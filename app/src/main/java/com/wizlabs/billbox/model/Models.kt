@@ -42,6 +42,18 @@ data class BillPhoto(
     val driveId: String? = null,
 )
 
+/**
+ * A PDF kept with a bill (N4). [localName] is the file inside the app's `docs` folder (null until downloaded on
+ * a new phone); [driveId] is the Drive file (null until uploaded).
+ */
+data class BillFile(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val mime: String = "application/pdf",
+    val localName: String? = null,
+    val driveId: String? = null,
+)
+
 data class Bill(
     val id: String = UUID.randomUUID().toString(),
     // Required
@@ -57,6 +69,7 @@ data class Bill(
     val gstin: String = "",
     val notes: String = "",
     val photos: List<BillPhoto> = emptyList(),
+    val files: List<BillFile> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     // Drive bookkeeping (not shown to the user)
@@ -76,9 +89,20 @@ data class AppData(
     val account: Account? = null,
     val rootFolderId: String? = null,
     val lastSyncAt: Long? = null,
+    /** How far ahead Home calls a warranty "expiring" (7..90 days). */
     val warrantyReminderDays: Int = 30,
+    /** N3: notify before a warranty ends. Master switch and the 30 / 7 / 1 day switches. */
+    val remindersOn: Boolean = true,
+    val remind30: Boolean = true,
+    val remind7: Boolean = true,
+    val remind1: Boolean = true,
+    /** The notification permission has been asked once (first warranty save). */
+    val notifAsked: Boolean = false,
     /** The user chose "Use without Google for now" on the welcome screen. */
     val skippedSignIn: Boolean = false,
 )
 
 enum class SortBy(val label: String) { DATE("Invoice date"), ADDED("Recently added"), AMOUNT("Amount"), STORE("Store") }
+
+/** Home segmented control (N5). */
+enum class WarrantyFilter { ALL, ACTIVE, EXPIRING, EXPIRED }

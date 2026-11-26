@@ -1,132 +1,94 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.wizlabs.billbox.ui.screens
 
-import androidx.compose.foundation.Image
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import com.wizlabs.billbox.ui.anim.LocalReduceMotion
-import com.wizlabs.billbox.ui.anim.enterUp
-import com.wizlabs.billbox.ui.anim.pressScale
-import com.wizlabs.billbox.ui.anim.shimmer
-import com.wizlabs.billbox.ui.anim.rememberHaptics
-import com.wizlabs.billbox.ui.art.VaultOrbit
-import com.wizlabs.billbox.ui.art.VaultState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudSync
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.PhotoCamera
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wizlabs.billbox.R
-import com.wizlabs.billbox.ui.components.IconBadge
+import com.wizlabs.billbox.engine.Line
+import com.wizlabs.billbox.engine.TallyBrain
+import com.wizlabs.billbox.ui.anim.enterUp
+import com.wizlabs.billbox.ui.components.PrimaryButton
+import com.wizlabs.billbox.ui.mascot.Tally
 import com.wizlabs.billbox.ui.theme.Wiz
 
+/** Three onboarding pages with Tally (hello, file, bell), then Google sign-in or "use without sign-in". */
 @Composable
-fun WelcomeScreen(signingIn: Boolean, onSignIn: () -> Unit, onSkip: () -> Unit, onPrivacy: () -> Unit) {
+fun WelcomeScreen(signingIn: Boolean, error: String?, onSignIn: () -> Unit, onSkip: () -> Unit, onPrivacy: () -> Unit) {
     val c = Wiz.c
+    val pager = rememberPagerState { 3 }
     Column(
-        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(24.dp),
+        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(16.dp))
-        HeroLogo()
-        Spacer(Modifier.height(4.dp))
-        Text("Wiz Bill Box", style = MaterialTheme.typography.displaySmall, color = c.text, modifier = Modifier.enterUp(1))
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Snap every bill once. Find it in seconds, on any phone.",
-            style = MaterialTheme.typography.bodyLarge, color = c.muted, textAlign = TextAlign.Center,
-            modifier = Modifier.enterUp(2),
-        )
-        Spacer(Modifier.height(32.dp))
-        Point(Icons.Rounded.PhotoCamera, "Photograph bills", "Add the store, product and invoice date, plus price, warranty and notes if you want.", index = 3)
-        Point(Icons.Rounded.CloudSync, "Kept in your Google Drive", "Every bill goes to a \"Wiz Bill Box\" folder in your own Drive. Sign in on a new phone and they all come back.", index = 4)
-        Point(Icons.Rounded.Search, "Find anything", "Search by store, product or invoice number. Get warranty end dates at a glance.", index = 5)
-        Point(Icons.Rounded.Lock, "Private", "The app can only see the files it creates. Nothing else in your Drive.", index = 6)
-        Spacer(Modifier.height(28.dp))
-        val press = remember { MutableInteractionSource() }
-        val haptics = rememberHaptics()
-        Button(
-            onClick = { haptics.tap(); onSignIn() }, enabled = !signingIn, interactionSource = press,
-            modifier = Modifier.enterUp(7, distance = 40.dp).pressScale(press, 0.95f).fillMaxWidth().height(56.dp)
-                .clip(RoundedCornerShape(16.dp)).then(if (signingIn) Modifier else Modifier.shimmer()),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = c.accent, contentColor = c.onAccent,
-                disabledContainerColor = c.accent.copy(alpha = 0.55f), disabledContentColor = c.onAccent),
-        ) {
-            if (signingIn) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = c.onAccent)
-                Spacer(Modifier.width(12.dp))
-                Text("Connecting to Google…", fontWeight = FontWeight.Bold)
-            } else {
-                Text("G", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.width(12.dp))
-                Text("Sign in with Google", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+        Text(Wordmark(18f), maxLines = 1)
+        HorizontalPager(pager, Modifier.weight(1f).widthIn(max = 520.dp)) { page ->
+            val mood = TallyBrain.onboarding(page)
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+            ) {
+                Tally(mood, 150.dp, replay = if (pager.currentPage == page) 1 else 0)
+                Spacer(Modifier.height(20.dp))
+                Text(stringResource(titleOf(mood.line)), style = MaterialTheme.typography.headlineMedium, color = c.text, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(bodyOf(mood.line)), style = MaterialTheme.typography.bodyLarge, color = c.muted, textAlign = TextAlign.Center)
             }
         }
-        Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onSkip, enabled = !signingIn, modifier = Modifier.enterUp(8)) { Text("Use on this phone only for now", color = c.muted) }
-        TextButton(onClick = onPrivacy) { Text("Privacy policy", color = c.muted, style = MaterialTheme.typography.labelMedium) }
-    }
-}
-
-@Composable
-private fun Point(icon: ImageVector, title: String, body: String, index: Int) {
-    val c = Wiz.c
-    Row(Modifier.fillMaxWidth().enterUp(index, stepMs = 90).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        IconBadge(icon, size = 40.dp, tint = c.accentInk, bg = c.surface2)
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = c.text)
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = c.muted)
+        Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            repeat(3) { i ->
+                Box(Modifier.size(if (i == pager.currentPage) 22.dp else 8.dp, 8.dp).clip(CircleShape).background(if (i == pager.currentPage) c.accent else c.line))
+            }
         }
+        if (error != null) {
+            Row(
+                Modifier.fillMaxWidth().widthIn(max = 520.dp).clip(RoundedCornerShape(14.dp)).background(c.bad.copy(alpha = 0.10f))
+                    .border(1.dp, c.bad.copy(alpha = 0.4f), RoundedCornerShape(14.dp)).padding(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(error, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = c.text)
+                TextButton(onClick = onSignIn, enabled = !signingIn, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.retry), color = c.bad) }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+        PrimaryButton(stringResource(R.string.sign_in_google), onSignIn, Modifier.fillMaxWidth().widthIn(max = 520.dp).enterUp(1, distance = 24.dp), loading = signingIn)
+        TextButton(onClick = onSkip, enabled = !signingIn, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.use_without), color = c.muted) }
+        TextButton(onClick = onPrivacy, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.privacy_policy), color = c.muted, style = MaterialTheme.typography.labelMedium) }
     }
 }
 
-/** The bill vault springs in, receipts orbiting and dropping into its slot. Replaces the old spinning logo. */
-@Composable
-private fun HeroLogo() {
-    val reduce = LocalReduceMotion.current
-    val pop = remember { Animatable(if (reduce) 1f else 0f) }
-    LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 200f)) }
-    VaultOrbit(
-        VaultState.INTRO, size = 196.dp,
-        modifier = Modifier.graphicsLayer { scaleX = 0.6f + 0.4f * pop.value; scaleY = 0.6f + 0.4f * pop.value; alpha = pop.value.coerceIn(0f, 1f) },
-    )
-}
+private fun titleOf(l: Line?) = when (l) { Line.Onboard1 -> R.string.ob1_title; Line.Onboard2 -> R.string.ob2_title; else -> R.string.ob3_title }
+private fun bodyOf(l: Line?) = when (l) { Line.Onboard1 -> R.string.ob1_body; Line.Onboard2 -> R.string.ob2_body; else -> R.string.ob3_body }

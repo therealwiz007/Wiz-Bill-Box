@@ -2,6 +2,7 @@ package com.wizlabs.billbox
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -29,70 +30,68 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wizlabs.billbox.engine.Action
+import com.wizlabs.billbox.engine.Expression
+import com.wizlabs.billbox.engine.Line
+import com.wizlabs.billbox.engine.Mood
+import com.wizlabs.billbox.reminders.WarrantyAlarms
 import com.wizlabs.billbox.ui.anim.BackPeek
 import com.wizlabs.billbox.ui.anim.LocalBackPeek
-import com.wizlabs.billbox.ui.anim.backPeek
 import com.wizlabs.billbox.ui.anim.LocalReduceMotion
 import com.wizlabs.billbox.ui.anim.LocalSharedScope
-import com.wizlabs.billbox.ui.anim.ProvideNavScope
 import com.wizlabs.billbox.ui.anim.ProvideLoopClock
-import com.wizlabs.billbox.ui.anim.pressScale
-import com.wizlabs.billbox.ui.anim.rememberHaptics
-import com.wizlabs.billbox.ui.art.ReceiptPrint
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import com.wizlabs.billbox.ui.anim.enterUp
+import com.wizlabs.billbox.ui.anim.ProvideNavScope
+import com.wizlabs.billbox.ui.anim.backPeek
 import com.wizlabs.billbox.ui.anim.rememberReduceMotion
-import com.wizlabs.billbox.ui.components.SyncingIcon
+import com.wizlabs.billbox.ui.components.EmptyState
+import com.wizlabs.billbox.ui.mascot.Tally
 import com.wizlabs.billbox.ui.screens.BillDetail
 import com.wizlabs.billbox.ui.screens.BillEditor
-import com.wizlabs.billbox.ui.screens.HomeScreen
+import com.wizlabs.billbox.ui.screens.HomeScaffold
 import com.wizlabs.billbox.ui.screens.PrivacyScreen
 import com.wizlabs.billbox.ui.screens.SettingsScreen
 import com.wizlabs.billbox.ui.screens.WelcomeScreen
 import com.wizlabs.billbox.ui.theme.Wiz
 import com.wizlabs.billbox.ui.theme.WizTheme
+import com.wizlabs.update.WizUpdate
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
+    private var update: WizUpdate? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -103,6 +102,7 @@ class MainActivity : ComponentActivity() {
                 WizTheme(data.theme) {
                     val c = Wiz.c
                     LaunchedEffect(c.isDark) {
+                        BillUi.dark = c.isDark
                         val bar = if (c.isDark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                         else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.BLACK)
                         enableEdgeToEdge(statusBarStyle = bar, navigationBarStyle = bar)
@@ -111,6 +111,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        AdsSetup.install(applicationContext)
+        update = createWizUpdate(this)
+        openFrom(intent)
+        window.decorView.post { reportFullyDrawn() }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openFrom(intent)
+    }
+
+    /** A reminder notification opens its bill. */
+    private fun openFrom(i: Intent?) {
+        i?.getStringExtra(WarrantyAlarms.EXTRA_BILL)?.let { vm.requestOpen(it); i.removeExtra(WarrantyAlarms.EXTRA_BILL) }
     }
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
@@ -121,7 +136,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.requestSync(delayMs = 300)
+        update?.onResume()
     }
+
+    override fun onPause() { update?.onPause(); super.onPause() }
+    override fun onDestroy() { update?.onDestroy(); update = null; super.onDestroy() }
 }
 
 object BuildConfigInfo {
@@ -141,41 +160,24 @@ private fun isHeroPair(a: String, b: String) = (a == "home" && b.startsWith("det
 
 private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
+/** Wiz motion: slide 12 % of the width + fade, 320 ms in / 200 ms out, outgoing screen at 0.97. */
 private fun AnimatedContentTransitionScope<String>.navTransition(reduce: Boolean): ContentTransform {
     val from = initialState
     val to = targetState
     val t = when {
         reduce -> fadeIn(tween(120)) togetherWith fadeOut(tween(120))
-        // The photo/card morphs between list and bill (shared element), so the screens only crossfade.
-        isHeroPair(from, to) -> fadeIn(tween(320, delayMillis = 40)) togetherWith fadeOut(tween(220))
-        // Editor rises like a sheet and sinks back down.
-        isSheet(to) -> (slideInVertically(tween(460, easing = Emphasized)) { it / 3 } + fadeIn(tween(300))) togetherWith
-            (fadeOut(tween(220)) + scaleOut(tween(300), targetScale = 0.94f))
-        isSheet(from) -> (fadeIn(tween(260)) + scaleIn(tween(360, easing = Emphasized), initialScale = 0.94f)) togetherWith
-            (slideOutVertically(tween(340, easing = Emphasized)) { it / 3 } + fadeOut(tween(260)))
-        from == "welcome" || to == "welcome" ->
-            (fadeIn(tween(420)) + scaleIn(tween(520, easing = Emphasized), initialScale = 1.06f)) togetherWith
-                (fadeOut(tween(260)) + scaleOut(tween(420), targetScale = 0.92f))
-        depth(to) >= depth(from) -> (slideInHorizontally(tween(420, easing = Emphasized)) { it / 3 } + fadeIn(tween(280))) togetherWith
-            (slideOutHorizontally(tween(420, easing = Emphasized)) { -it / 8 } + fadeOut(tween(220)))
-        else -> (slideInHorizontally(tween(420, easing = Emphasized)) { -it / 8 } + fadeIn(tween(280))) togetherWith
-            (slideOutHorizontally(tween(420, easing = Emphasized)) { it / 3 } + fadeOut(tween(220)))
+        isHeroPair(from, to) -> fadeIn(tween(300, delayMillis = 40)) togetherWith fadeOut(tween(200))
+        isSheet(to) -> (slideInVertically(tween(320, easing = Emphasized)) { it / 4 } + fadeIn(tween(300))) togetherWith
+            (fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.97f))
+        isSheet(from) -> (fadeIn(tween(260)) + scaleIn(tween(320, easing = Emphasized), initialScale = 0.97f)) togetherWith
+            (slideOutVertically(tween(200, easing = Emphasized)) { it / 4 } + fadeOut(tween(200)))
+        from == "welcome" || to == "welcome" -> fadeIn(tween(320)) togetherWith (fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.97f))
+        depth(to) >= depth(from) -> (slideInHorizontally(tween(320, easing = Emphasized)) { it * 12 / 100 } + fadeIn(tween(320))) togetherWith
+            (slideOutHorizontally(tween(200, easing = Emphasized)) { -it * 12 / 100 } + fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.97f))
+        else -> (slideInHorizontally(tween(320, easing = Emphasized)) { -it * 12 / 100 } + fadeIn(tween(320))) togetherWith
+            (slideOutHorizontally(tween(200, easing = Emphasized)) { it * 12 / 100 } + fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.97f))
     }
     return t.using(SizeTransform(clip = false))
-}
-
-/** True while the list is at the top or the user is scrolling back up (keeps the FAB label visible). */
-@Composable
-private fun LazyListState.expandFab(): Boolean {
-    var prevIndex by remember(this) { mutableIntStateOf(firstVisibleItemIndex) }
-    var prevOffset by remember(this) { mutableIntStateOf(firstVisibleItemScrollOffset) }
-    var up by remember(this) { mutableStateOf(true) }
-    val atTop by remember(this) { derivedStateOf { firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset < 40 } }
-    LaunchedEffect(firstVisibleItemIndex, firstVisibleItemScrollOffset) {
-        up = if (firstVisibleItemIndex != prevIndex) firstVisibleItemIndex < prevIndex else firstVisibleItemScrollOffset <= prevOffset
-        prevIndex = firstVisibleItemIndex; prevOffset = firstVisibleItemScrollOffset
-    }
-    return atTop || up
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
@@ -186,13 +188,17 @@ private fun App(vm: AppViewModel) {
     val data by vm.data.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
     val signingIn by vm.signingIn.collectAsStateWithLifecycle()
+    val signInError by vm.signInError.collectAsStateWithLifecycle()
+    val openBill by vm.openBill.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
     var route by rememberSaveable { mutableStateOf("home") }
-    var burst by remember { mutableStateOf<String?>(null) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var toast by remember { mutableStateOf<Boolean?>(null) }
     val listState = rememberLazyListState() // kept here so the list keeps its scroll position across screens
     val peek = remember { BackPeek() }
+    val wide = LocalConfiguration.current.screenWidthDp >= 840
     // Once the back transition has played, drop the peek so the next visit starts full size.
-    LaunchedEffect(route) { kotlinx.coroutines.delay(650); if (peek.route != null && peek.route != route) peek.reset() }
+    LaunchedEffect(route) { delay(650); if (peek.route != null && peek.route != route) peek.reset() }
 
     val consentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
         vm.onConsentResult(r.resultCode == Activity.RESULT_OK, r.data)
@@ -202,107 +208,98 @@ private fun App(vm: AppViewModel) {
     }
     LaunchedEffect(Unit) { vm.messages.collect { snack.showSnackbar(it) } }
 
-    LaunchedEffect(route) { if (!route.startsWith("detail:")) burst = null }
-
     val showWelcome = data.account == null && !data.skippedSignIn
+    // A reminder notification opens its bill.
+    LaunchedEffect(openBill, data.bills) {
+        val id = openBill ?: return@LaunchedEffect
+        if (data.bills.any { it.id == id }) { if (wide) { selectedId = id; route = "home" } else route = "detail:$id"; vm.openHandled() }
+    }
+    // A narrow route carried over to a wide window becomes a selection.
+    LaunchedEffect(wide, route) {
+        if (wide && route.startsWith("detail:")) { selectedId = route.removePrefix("detail:"); route = "home" }
+    }
+    LaunchedEffect(toast) { if (toast != null) { delay(2400); toast = null } }
+    BillUi.busy = showWelcome || route == "new" || route.startsWith("edit:")
+
     val knownStores = remember(data.bills) { data.bills.map { it.store }.distinct().sorted() }
 
     Box(Modifier.fillMaxSize().background(c.bg)) {
         SharedTransitionLayout {
-            CompositionLocalProvider(LocalSharedScope provides this, LocalBackPeek provides peek) {
+            CompositionLocalProvider(LocalSharedScope provides (if (wide) null else this), LocalBackPeek provides peek) {
                 AnimatedContent(
                     if (showWelcome) "welcome" else route,
                     transitionSpec = { navTransition(reduce) },
                     label = "nav",
                 ) { r ->
                     ProvideNavScope(this) {
-                      Box(Modifier.fillMaxSize().backPeek(r)) {
-                        when {
-                            r == "welcome" -> WelcomeScreen(signingIn, onSignIn = vm::signIn, onSkip = vm::skipSignIn, onPrivacy = { route = "privacy" })
-                            r == "privacy" -> PrivacyScreen { route = "home" }
-                            r == "settings" -> SettingsScreen(vm, data, sync, signingIn, onBack = { route = "home" }, onSignIn = vm::signIn, onPrivacy = { route = "privacy" })
-                            r == "new" -> BillEditor(vm, null, knownStores) { saved ->
-                                if (saved != null) { burst = "Saved to your box"; route = "detail:${saved.id}" } else route = "home"
-                            }
-                            r.startsWith("edit:") -> {
-                                val b = data.bills.find { it.id == r.removePrefix("edit:") }
-                                if (b == null) LaunchedEffect(Unit) { route = "home" }
-                                else BillEditor(vm, b, knownStores) { saved ->
-                                    if (saved != null) burst = "Bill updated"
-                                    route = "detail:${b.id}"
+                        Box(Modifier.fillMaxSize().backPeek(r)) {
+                            when {
+                                r == "welcome" -> WelcomeScreen(signingIn, signInError, onSignIn = vm::signIn, onSkip = vm::skipSignIn, onPrivacy = { route = "privacy" })
+                                r == "privacy" -> PrivacyScreen { route = "home" }
+                                r == "settings" -> SettingsScreen(vm, data, sync, signingIn, onBack = { route = "home" }, onSignIn = vm::signIn, onPrivacy = { route = "privacy" })
+                                r == "new" -> BillEditor(vm, null, knownStores, data) { saved ->
+                                    if (saved != null) { toast = true; if (wide) { selectedId = saved.id; route = "home" } else route = "detail:${saved.id}" } else route = "home"
                                 }
+                                r.startsWith("edit:") -> {
+                                    val b = data.bills.find { it.id == r.removePrefix("edit:") }
+                                    if (b == null) LaunchedEffect(Unit) { route = "home" }
+                                    else BillEditor(vm, b, knownStores, data) { saved ->
+                                        if (saved != null) toast = true
+                                        if (wide) route = "home" else route = "detail:${b.id}"
+                                    }
+                                }
+                                r.startsWith("detail:") -> {
+                                    val b = data.bills.find { it.id == r.removePrefix("detail:") }
+                                    if (b == null) LaunchedEffect(Unit) { route = "home" }
+                                    else BillDetail(vm, b, data, onBack = { route = "home" }, onEdit = { route = "edit:${b.id}" })
+                                }
+                                wide -> TwoPane(vm, data, sync, listState, selectedId, onSelect = { selectedId = it }, onRoute = { route = it })
+                                else -> HomeScaffold(vm, data, sync, listState, onOpen = { route = "detail:${it.id}" }, onAdd = { route = "new" }, onSettings = { route = "settings" })
                             }
-                            r.startsWith("detail:") -> {
-                                val b = data.bills.find { it.id == r.removePrefix("detail:") }
-                                if (b == null) LaunchedEffect(Unit) { route = "home" }
-                                else BillDetail(vm, b, data.account != null, onBack = { route = "home" }, onEdit = { route = "edit:${b.id}" })
-                            }
-                            else -> HomeScaffold(vm, data, sync, snack, listState, onRoute = { route = it })
                         }
-                      }
                     }
                 }
             }
         }
-        if (showWelcome || route != "home") {
-            SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
-        }
-        burst?.let { label -> ReceiptPrint(label) { burst = null } }
+        SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (route == "home" && !showWelcome) 88.dp else 0.dp))
+        toast?.let { SaveToast(signedIn = data.account != null, Modifier.align(Alignment.BottomCenter)) }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Tablet: list on the left (40 %), the selected bill on the right. */
 @Composable
-private fun HomeScaffold(
-    vm: AppViewModel, data: com.wizlabs.billbox.model.AppData, sync: SyncState,
-    snack: SnackbarHostState, listState: LazyListState, onRoute: (String) -> Unit,
+private fun TwoPane(
+    vm: AppViewModel, data: com.wizlabs.billbox.model.AppData, sync: SyncState, listState: androidx.compose.foundation.lazy.LazyListState,
+    selectedId: String?, onSelect: (String?) -> Unit, onRoute: (String) -> Unit,
 ) {
     val c = Wiz.c
-    val expanded = listState.expandFab()
-    val haptics = rememberHaptics()
-    val fabPress = remember { MutableInteractionSource() }
-    Scaffold(
-        containerColor = c.bg,
-        topBar = {
-            TopAppBar(
-                title = { Text("Wiz Bill Box", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge) },
-                actions = {
-                    val kind = when {
-                        sync is SyncState.Running -> 0
-                        data.account == null -> 1
-                        sync is SyncState.Failed || sync is SyncState.NeedsSignIn -> 2
-                        else -> 3
-                    }
-                    AnimatedContent(
-                        kind,
-                        transitionSpec = {
-                            (scaleIn(androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 400f), initialScale = 0.4f) + fadeIn()) togetherWith
-                                (scaleOut(targetScale = 0.4f) + fadeOut())
-                        },
-                        label = "cloud",
-                    ) { k ->
-                        when (k) {
-                            0 -> SyncingIcon()
-                            1 -> IconButton(onClick = vm::signIn) { Icon(Icons.Rounded.CloudOff, "Sign in", tint = c.warn) }
-                            2 -> IconButton(onClick = { vm.requestSync() }) { Icon(Icons.Rounded.ErrorOutline, "Sync problem", tint = c.bad) }
-                            else -> IconButton(onClick = { vm.requestSync() }) { Icon(Icons.Rounded.CloudDone, "Synced with Google Drive", tint = c.good) }
-                        }
-                    }
-                    IconButton(onClick = { onRoute("settings") }) { Icon(Icons.Rounded.Settings, "Settings") }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg, titleContentColor = c.text, actionIconContentColor = c.text),
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { haptics.tap(); onRoute("new") }, expanded = expanded, interactionSource = fabPress,
-                containerColor = c.accent, contentColor = c.onAccent,
-                icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Add bill", fontWeight = FontWeight.Bold) },
-                modifier = Modifier.enterUp(index = 3, distance = 40.dp).pressScale(fabPress, 0.92f),
-            )
-        },
-        snackbarHost = { SnackbarHost(snack) },
-    ) { pad ->
-        HomeScreen(vm, data, sync, pad, listState, onOpen = { onRoute("detail:${it.id}") }, onSignIn = vm::signIn)
+    Row(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(0.4f).fillMaxSize()) {
+            HomeScaffold(vm, data, sync, listState, selectedId, onOpen = { onSelect(it.id) }, onAdd = { onRoute("new") }, onSettings = { onRoute("settings") })
+        }
+        Box(Modifier.weight(0.6f).fillMaxSize().border(1.dp, c.line)) {
+            val b = data.bills.find { it.id == selectedId }
+            if (b != null) BillDetail(vm, b, data, onBack = { onSelect(null) }, onEdit = { onRoute("edit:${b.id}") }, showBack = false)
+            else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                EmptyState(
+                    Mood(Expression.HAPPY, Action.STILL, null), stringResource(R.string.pick_bill_title), stringResource(R.string.pick_bill_body),
+                )
+            }
+        }
+    }
+}
+
+/** Tally's save confirmation: a card at the bottom for 2.4 s with the receipt drop. */
+@Composable
+private fun SaveToast(signedIn: Boolean, modifier: Modifier = Modifier) {
+    val c = Wiz.c
+    Row(
+        modifier.navigationBarsPadding().padding(start = 20.dp, end = 20.dp, bottom = 96.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp)).background(c.surface).border(1.dp, c.line, RoundedCornerShape(18.dp)).padding(10.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Tally(Mood(Expression.PROUD, Action.RECEIPT_DROP, Line.Saved), 48.dp)
+        Text(stringResource(if (signedIn) R.string.toast_saved_drive else R.string.toast_saved_local), color = c.text, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
     }
 }

@@ -1,0 +1,5 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- notification icon: receipt with a shield-check (monochrome) -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M6,2h12v19l-2.4,-1.6L13.2,21L12,20.2L10.8,21l-2.4,-1.6L6,21z M12,6.5l4,1.6v3c0,2.4 -1.7,3.9 -4,4.9c-2.3,-1 -4,-2.5 -4,-4.9v-3z" android:fillType="evenOdd" />
+</vector>

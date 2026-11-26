@@ -13,7 +13,11 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import com.wizlabs.billbox.R
 import androidx.compose.ui.unit.sp
 import com.wizlabs.billbox.model.ThemeMode
 
@@ -26,33 +30,57 @@ data class WizPalette(
     val line: Color,
     val text: Color,
     val muted: Color,
-    /** Brand yellow, used as a fill. */
+    /** Emerald "ink": primary buttons, selected chips. Use as a fill with [onAccent]. */
     val accent: Color,
-    /** Text/icons drawn on [accent]. */
+    /** Text/icons drawn on [accent] (bold 16 sp+ on light). */
     val onAccent: Color,
-    /** Yellow-family colour that stays readable as text/lines on [surface]. */
+    /** Emerald that stays readable as small text/lines on [surface]. */
     val accentInk: Color,
-    val accent2: Color,
+    /** Saffron: warranty time, reminders. */
+    val warranty: Color,
+    /** Saffron dark enough for small text on [surface]. */
+    val warrantyInk: Color,
     val good: Color,
     val warn: Color,
     val bad: Color,
-)
+) {
+    /** Kept so older call sites read the warranty colour as the secondary accent. */
+    val accent2: Color get() = warranty
+}
 
 val DarkPalette = WizPalette(
     isDark = true,
-    bg = Color(0xFF0A0A0C), surface = Color(0xFF141418), surface2 = Color(0xFF1E1E24), line = Color(0xFF2A2A33),
-    text = Color(0xFFF2F2F7), muted = Color(0xFF8E8E99),
-    accent = Color(0xFFFFD60A), onAccent = Color(0xFF1C1400), accentInk = Color(0xFFFFD60A), accent2 = Color(0xFFFF9F0A),
-    good = Color(0xFF30D158), warn = Color(0xFFFF9F0A), bad = Color(0xFFFF453A),
+    bg = Color(0xFF0C1110), surface = Color(0xFF141C1A), surface2 = Color(0xFF1C2724), line = Color(0xFF25322E),
+    text = Color(0xFFEEF5F1), muted = Color(0xFF8FA39A),
+    accent = Color(0xFF19C48B), onAccent = Color(0xFF04130D), accentInk = Color(0xFF19C48B),
+    warranty = Color(0xFFF5B841), warrantyInk = Color(0xFFF5B841),
+    good = Color(0xFF34D399), warn = Color(0xFFFB923C), bad = Color(0xFFF87171),
 )
 
 val LightPalette = WizPalette(
     isDark = false,
-    bg = Color(0xFFF4F4F7), surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEEEEF3), line = Color(0xFFE2E2E8),
-    text = Color(0xFF111114), muted = Color(0xFF6B6B76),
-    accent = Color(0xFFFFD60A), onAccent = Color(0xFF1C1400), accentInk = Color(0xFFB07D00), accent2 = Color(0xFFF08C00),
-    good = Color(0xFF1E9E4A), warn = Color(0xFFD97706), bad = Color(0xFFD92D20),
+    bg = Color(0xFFF7F6F2), surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEFEDE6), line = Color(0xFFE3E0D6),
+    text = Color(0xFF111A16), muted = Color(0xFF5E6B64),
+    accent = Color(0xFF0E9F6E), onAccent = Color(0xFFFFFFFF), accentInk = Color(0xFF0B7D57),
+    warranty = Color(0xFFD99A1E), warrantyInk = Color(0xFF8F5F00),
+    good = Color(0xFF16A34A), warn = Color(0xFFC2410C), bad = Color(0xFFCC2020),
 )
+
+/** 12 fixed category tints (same in light and dark). */
+fun categoryTint(c: com.wizlabs.billbox.model.Category?): Color = when (c) {
+    com.wizlabs.billbox.model.Category.ELECTRONICS -> Color(0xFF2563EB)
+    com.wizlabs.billbox.model.Category.APPLIANCES -> Color(0xFF0891B2)
+    com.wizlabs.billbox.model.Category.GROCERY -> Color(0xFF16A34A)
+    com.wizlabs.billbox.model.Category.FUEL -> Color(0xFFEA580C)
+    com.wizlabs.billbox.model.Category.MEDICAL -> Color(0xFFDB2777)
+    com.wizlabs.billbox.model.Category.CLOTHING -> Color(0xFF7C3AED)
+    com.wizlabs.billbox.model.Category.FURNITURE -> Color(0xFFA16207)
+    com.wizlabs.billbox.model.Category.VEHICLE -> Color(0xFF475569)
+    com.wizlabs.billbox.model.Category.UTILITIES -> Color(0xFF0D9488)
+    com.wizlabs.billbox.model.Category.RESTAURANT -> Color(0xFFE11D48)
+    com.wizlabs.billbox.model.Category.TRAVEL -> Color(0xFF4F46E5)
+    com.wizlabs.billbox.model.Category.OTHER, null -> Color(0xFF6B7280)
+}
 
 val LocalWiz = staticCompositionLocalOf { DarkPalette }
 
@@ -60,22 +88,34 @@ object Wiz {
     val c: WizPalette @Composable get() = LocalWiz.current
 }
 
-/** Tabular figures so numbers don't jiggle as they change. */
-val Numeric = TextStyle(fontFeatureSettings = "tnum")
+/** IBM Plex Mono for amounts, dates, invoice numbers and GSTIN. */
+val PlexMono = FontFamily(Font(R.font.plexmono, FontWeight.Medium))
+
+/** Manrope for headings (variable weight axis). */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+val Manrope = FontFamily(
+    Font(R.font.manrope, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(R.font.manrope, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    Font(R.font.manrope, FontWeight.ExtraBold, variationSettings = FontVariation.Settings(FontVariation.weight(800))),
+    Font(R.font.manrope, FontWeight.Black, variationSettings = FontVariation.Settings(FontVariation.weight(800))),
+)
+
+/** Mono numerals (amounts, dates). Tabular by nature. */
+val Numeric = TextStyle(fontFamily = PlexMono, fontFeatureSettings = "tnum")
 
 @Composable
 fun WizTheme(mode: ThemeMode, content: @Composable () -> Unit) {
     val dark = when (mode) { ThemeMode.SYSTEM -> isSystemInDarkTheme(); ThemeMode.DARK -> true; ThemeMode.LIGHT -> false }
     val p = animatedPalette(if (dark) DarkPalette else LightPalette)
     val scheme = if (dark) darkColorScheme(
-        primary = p.accent, onPrimary = p.onAccent, secondary = p.accent2, background = p.bg, onBackground = p.text,
+        primary = p.accent, onPrimary = p.onAccent, secondary = p.warranty, background = p.bg, onBackground = p.text,
         surface = p.surface, onSurface = p.text, surfaceVariant = p.surface2, onSurfaceVariant = p.muted,
         outline = p.line, outlineVariant = p.line, error = p.bad, surfaceContainer = p.surface,
         surfaceContainerHigh = p.surface2, surfaceContainerHighest = p.surface2, surfaceContainerLow = p.surface,
         primaryContainer = p.accent, onPrimaryContainer = p.onAccent, secondaryContainer = p.surface2,
         onSecondaryContainer = p.text,
     ) else lightColorScheme(
-        primary = p.accentInk, onPrimary = Color.White, secondary = p.accent2, background = p.bg, onBackground = p.text,
+        primary = p.accent, onPrimary = p.onAccent, secondary = p.warranty, background = p.bg, onBackground = p.text,
         surface = p.surface, onSurface = p.text, surfaceVariant = p.surface2, onSurfaceVariant = p.muted,
         outline = p.line, outlineVariant = p.line, error = p.bad, surfaceContainer = p.surface,
         surfaceContainerHigh = p.surface, surfaceContainerHighest = p.surface2, surfaceContainerLow = p.surface,
@@ -84,12 +124,17 @@ fun WizTheme(mode: ThemeMode, content: @Composable () -> Unit) {
     )
     val base = Typography()
     val type = base.copy(
-        displaySmall = base.displaySmall.copy(fontWeight = FontWeight.Black, letterSpacing = (-1).sp),
-        headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
-        headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.Bold),
-        titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold),
-        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-        labelSmall = base.labelSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp),
+        displaySmall = base.displaySmall.copy(fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 32.sp, lineHeight = 38.sp),
+        headlineMedium = base.headlineMedium.copy(fontFamily = Manrope, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 30.sp),
+        headlineSmall = base.headlineSmall.copy(fontFamily = Manrope, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp),
+        titleLarge = base.titleLarge.copy(fontFamily = Manrope, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 26.sp),
+        titleMedium = base.titleMedium.copy(fontFamily = Manrope, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
+        titleSmall = base.titleSmall.copy(fontFamily = Manrope, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 20.sp),
+        bodyLarge = base.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
+        bodyMedium = base.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
+        labelLarge = base.labelLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.sp, lineHeight = 18.sp),
+        labelMedium = base.labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
+        labelSmall = base.labelSmall.copy(fontFamily = Manrope, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.8.sp),
     )
     CompositionLocalProvider(LocalWiz provides p) {
         MaterialTheme(colorScheme = scheme, typography = type, content = content)
@@ -103,6 +148,6 @@ private fun animatedPalette(t: WizPalette): WizPalette {
     return WizPalette(
         isDark = t.isDark, bg = a(t.bg), surface = a(t.surface), surface2 = a(t.surface2), line = a(t.line),
         text = a(t.text), muted = a(t.muted), accent = a(t.accent), onAccent = a(t.onAccent), accentInk = a(t.accentInk),
-        accent2 = a(t.accent2), good = a(t.good), warn = a(t.warn), bad = a(t.bad),
+        warranty = a(t.warranty), warrantyInk = a(t.warrantyInk), good = a(t.good), warn = a(t.warn), bad = a(t.bad),
     )
 }

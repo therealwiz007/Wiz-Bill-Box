@@ -31,7 +31,7 @@ data class SyncResult(val uploaded: Int, val restored: Int, val removed: Int)
  *     bill.json              ← store, product, date and the optional details
  * ```
  */
-class BillRepository(private val store: Store, val photos: Photos) {
+class BillRepository(private val store: Store, val photos: Photos, val files: Files) {
 
     private val _data = MutableStateFlow(store.load())
     val data: StateFlow<AppData> = _data.asStateFlow()
@@ -49,21 +49,28 @@ class BillRepository(private val store: Store, val photos: Photos) {
         val old = d.bills.find { it.id == bill.id }
         val removed = old?.photos.orEmpty().filter { p -> bill.photos.none { it.id == p.id } }
         removed.forEach { photos.delete(it.localName) }
+        val removedFiles = old?.files.orEmpty().filter { f -> bill.files.none { it.id == f.id } }
+        removedFiles.forEach { files.delete(it.localName) }
         val saved = bill.copy(updatedAt = System.currentTimeMillis(), dirty = true)
         d.copy(
             bills = if (old == null) d.bills + saved else d.bills.map { if (it.id == bill.id) saved else it },
-            pendingDeletes = d.pendingDeletes + removed.mapNotNull { it.driveId },
+            pendingDeletes = d.pendingDeletes + removed.mapNotNull { it.driveId } + removedFiles.mapNotNull { it.driveId },
         )
     }
 
     fun deleteBill(id: String) = commit { d ->
         val b = d.bills.find { it.id == id } ?: return@commit d
         b.photos.forEach { photos.delete(it.localName) }
+        b.files.forEach { files.delete(it.localName) }
         d.copy(bills = d.bills.filter { it.id != id }, pendingDeletes = d.pendingDeletes + listOfNotNull(b.driveFolderId))
     }
 
     fun setTheme(t: ThemeMode) = commit { it.copy(theme = t) }
     fun setReminderDays(days: Int) = commit { it.copy(warrantyReminderDays = days) }
+    fun setReminders(on: Boolean? = null, r30: Boolean? = null, r7: Boolean? = null, r1: Boolean? = null) = commit {
+        it.copy(remindersOn = on ?: it.remindersOn, remind30 = r30 ?: it.remind30, remind7 = r7 ?: it.remind7, remind1 = r1 ?: it.remind1)
+    }
+    fun setNotifAsked() = commit { it.copy(notifAsked = true) }
     fun setAccount(a: Account) = commit { it.copy(account = a, skippedSignIn = false) }
     fun skipSignIn() = commit { it.copy(skippedSignIn = true) }
 
@@ -71,6 +78,7 @@ class BillRepository(private val store: Store, val photos: Photos) {
     fun clearLocal() {
         val theme = _data.value.theme
         photos.deleteAll()
+        files.deleteAll()
         _data.value = AppData(theme = theme)
         store.save(_data.value)
     }
@@ -116,8 +124,10 @@ class BillRepository(private val store: Store, val photos: Photos) {
                 val merged = fetched.copy(
                     driveFolderId = r.folderId, driveJsonId = r.jsonId, dirty = false,
                     photos = fetched.photos.map { p -> p.copy(localName = local?.photos?.find { it.id == p.id }?.localName) },
+                    files = fetched.files.map { f -> f.copy(localName = local?.files?.find { it.id == f.id }?.localName) },
                 )
                 local?.photos?.filter { lp -> merged.photos.none { it.id == lp.id } }?.forEach { photos.delete(it.localName) }
+                local?.files?.filter { lf -> merged.files.none { it.id == lf.id } }?.forEach { files.delete(it.localName) }
                 commit { d ->
                     val cur = d.bills.find { it.id == merged.id }
                     if (cur != null && cur.dirty) d // edited meanwhile; keep the user's change
@@ -130,7 +140,7 @@ class BillRepository(private val store: Store, val photos: Photos) {
             val remoteIds = remote.map { it.billId }.toSet()
             val gone = _data.value.bills.filter { !it.dirty && it.driveJsonId != null && it.id !in remoteIds }
             if (gone.isNotEmpty()) {
-                gone.forEach { b -> b.photos.forEach { photos.delete(it.localName) } }
+                gone.forEach { b -> b.photos.forEach { photos.delete(it.localName) }; b.files.forEach { files.delete(it.localName) } }
                 val ids = gone.map { it.id }.toSet()
                 commit { d -> d.copy(bills = d.bills.filter { it.id !in ids || it.dirty }) }
             }
@@ -153,6 +163,7 @@ class BillRepository(private val store: Store, val photos: Photos) {
             b = b.copy(
                 driveFolderId = id, driveJsonId = null,
                 photos = b.photos.map { p -> if (p.localName != null && photos.file(p.localName).exists()) p.copy(driveId = null) else p },
+                files = b.files.map { f -> if (f.localName != null && files.file(f.localName).exists()) f.copy(driveId = null) else f },
             )
             mergeDrive(b)
         }
@@ -170,6 +181,20 @@ class BillRepository(private val store: Store, val photos: Photos) {
                 description = desc,
             )
             b = b.copy(photos = b.photos.map { if (it.id == p.id) it.copy(driveId = id) else it })
+            mergeDrive(b)
+        }
+
+        // PDF bills that aren't in Drive yet.
+        b.files.forEach { f ->
+            if (f.driveId != null) return@forEach
+            val name = f.localName ?: return@forEach
+            val file = files.file(name)
+            if (!file.exists()) return@forEach
+            val id = api.upload(
+                name = f.name, mime = f.mime, content = file.readBytes(), parent = folder,
+                props = mapOf("wizKind" to "file", "billId" to b.id, "fileId" to f.id), description = desc,
+            )
+            b = b.copy(files = b.files.map { if (it.id == f.id) it.copy(driveId = id) else it })
             mergeDrive(b)
         }
 
@@ -192,6 +217,7 @@ class BillRepository(private val store: Store, val photos: Photos) {
                 driveFolderId = pushed.driveFolderId,
                 driveJsonId = pushed.driveJsonId,
                 photos = cur.photos.map { p -> pushed.photos.find { it.id == p.id }?.let { p.copy(driveId = it.driveId) } ?: p },
+                files = cur.files.map { f -> pushed.files.find { it.id == f.id }?.let { f.copy(driveId = it.driveId) } ?: f },
                 dirty = if (done) cur.updatedAt != pushed.updatedAt else cur.dirty,
             )
         })
@@ -210,6 +236,22 @@ class BillRepository(private val store: Store, val photos: Photos) {
         commit { d ->
             d.copy(bills = d.bills.map { b ->
                 if (b.id != billId) b else b.copy(photos = b.photos.map { if (it.id == photoId) it.copy(localName = name) else it })
+            })
+        }
+        name
+    }
+
+    /** Downloads a PDF saved from another phone. Returns its local file name. */
+    suspend fun fetchFile(token: String, billId: String, fileId: String): String? = withContext(Dispatchers.IO) {
+        val bill = _data.value.bills.find { it.id == billId } ?: return@withContext null
+        val f = bill.files.find { it.id == fileId } ?: return@withContext null
+        f.localName?.takeIf { files.file(it).exists() }?.let { return@withContext it }
+        val driveId = f.driveId ?: return@withContext null
+        val name = "${f.id}.pdf"
+        DriveApi(token).downloadTo(driveId, files.file(name))
+        commit { d ->
+            d.copy(bills = d.bills.map { b ->
+                if (b.id != billId) b else b.copy(files = b.files.map { if (it.id == fileId) it.copy(localName = name) else it })
             })
         }
         name

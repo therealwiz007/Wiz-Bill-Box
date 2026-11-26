@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <!-- Tally: kraft filing box, tilted lid, zig-zag receipt. Same geometry as ui/mascot/TallyArt.kt (neutral/happy pose). -->
+  <g transform="rotate(8 50 54)"><path d="M40,54 L40,20 L44,17 L48,20 L52,17 L56,20 L60,17 L60,54 Z" fill="#fff" stroke="#E3E0D6" stroke-width=".9"/>
+    <path d="M43,25h14M43,30h14M43,35h9" stroke="#E3E0D6" stroke-width="1.4" stroke-linecap="round"/></g>
+  <path d="M20,44 L80,44 L77,88 Q77,90 75,90 L25,90 Q23,90 23,88 Z" fill="#E8C9A0"/>
+  <path d="M68,44 L80,44 L77,88 Q77,90 75,90 L70,90 Z" fill="#C9A27A"/>
+  <rect x="30" y="90" width="10" height="4.5" rx="2" fill="#C9A27A"/><rect x="60" y="90" width="10" height="4.5" rx="2" fill="#C9A27A"/>
+  <g transform="translate(17 34) rotate(-4 2 10)"><rect width="66" height="10" rx="4" fill="#D9B88F"/></g>
+  <rect x="33" y="56" width="34" height="15" rx="3" fill="#fff"/>
+  <g><circle cx="42" cy="62" r="3.5" fill="#fff" stroke="#C9A27A" stroke-width=".7"/><circle cx="42.4" cy="62.4" r="1.75" fill="#111A16"/>
+     <circle cx="58" cy="62" r="3.5" fill="#fff" stroke="#C9A27A" stroke-width=".7"/><circle cx="58.4" cy="62.4" r="1.75" fill="#111A16"/></g>
+  <path d="M46.6,66.6 Q50,70.2 53.4,66.6" fill="none" stroke="#111A16" stroke-width="1.5" stroke-linecap="round"/>
+  <g transform="translate(78 52)"><circle r="6.5" fill="#0E9F6E"/><path d="M-3,0 L-.8,2.4 L3.2,-2.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g transform="translate(84 16)"><path d="M-6,12 Q-6,0 0,0 Q6,0 6,12 L8,14 L-8,14 Z" fill="#D99A1E"/><circle cy="16.5" r="1.8" fill="#D99A1E"/></g>
+</svg>

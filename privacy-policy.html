@@ -2,20 +2,24 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wiz Bill Box – Privacy Policy</title>
 <style>
-:root{--bg:#0A0A0C;--fg:#F2F2F7;--muted:#8E8E99;--acc:#FFD60A;--card:#141418;--line:#2A2A33}
-@media (prefers-color-scheme: light){:root{--bg:#F4F4F7;--fg:#111114;--muted:#6B6B76;--acc:#B07D00;--card:#fff;--line:#E2E2E8}}
+:root{--bg:#0C1110;--fg:#EEF5F1;--muted:#8FA39A;--acc:#19C48B;--card:#141C1A;--line:#25322E}
+@media (prefers-color-scheme: light){:root{--bg:#F7F6F2;--fg:#111A16;--muted:#5E6B64;--acc:#0B7D57;--card:#fff;--line:#E3E0D6}}
 body{background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,Roboto,sans-serif;margin:0;padding:20px 16px 40px}
 main{max-width:720px;margin:auto}h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 6px;color:var(--acc)}
 p,li{color:var(--fg)}small{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-top:16px}
 </style></head><body><main>
 <h1>Wiz Bill Box – Privacy Policy</h1>
-<small>Wiz Labs · Effective 10 November 2026</small>
+<small>Wiz Labs · Effective 26 November 2026 (version 2.0.0)</small>
 
 <div class="card"><b>In short:</b> your bills are stored on your phone and in <b>your own Google Drive</b>. Wiz Labs has no server and never receives your bills, photos or account details.</div>
 
 <h2>What the app stores</h2>
-<p>When you add a bill, the app saves its photos and the details you type (store name, product, invoice date and any optional details such as amount, invoice number, category, payment mode, warranty date, GSTIN and notes) in the app's private storage on your phone.</p>
+<p>When you add a bill, the app saves its photos, PDF files and the details you type (store name, product, invoice date and any optional details such as amount, invoice number, category, payment mode, warranty date, GSTIN and notes) in the app's private storage on your phone.</p>
 
+<h2>PDF bills</h2>
+<p>If you add a PDF bill (up to 15 MB), the app copies it into its private storage and, when you are signed in, uploads it to the same Drive folder as the bill's photos. A small preview of its first page is made on your phone.</p>
+<h2>Warranty reminders</h2>
+<p>If a bill has a warranty date, the app can show a notification 30, 7 and 1 day before it ends. These reminders are created on your phone from the bills stored on your phone. They use no server and no network. You can switch each one off in Settings, or turn off notifications for the app in Android settings. The app asks for notification permission the first time you save a bill with a warranty, and uses a start-up permission only to schedule the daily check again after the phone restarts.</p>
 <h2>Google sign-in and Google Drive</h2>
 <p>If you sign in with Google, the app asks for permission to use Google Drive with the <code>drive.file</code> scope. This lets it create and manage <b>only the files and folders it creates</b>, in a folder called “Wiz Bill Box” in your Drive. It cannot see, read or change any other file in your Drive.</p>
 <p>The app also reads your Google account's email address and name, only to show you which account you're signed in with.</p>
@@ -25,10 +29,15 @@ p,li{color:var(--fg)}small{color:var(--muted)}.card{background:var(--card);borde
 <h2>What we don't do</h2>
 <ul>
 <li>No Wiz Labs server, account or cloud: we never receive your data.</li>
-<li>No ads, analytics, tracking or crash reporting SDKs.</li>
+<li>No analytics, tracking or crash reporting. No advertising ID is used.</li>
+<li>No ads are shown in this version. Ads by Google AdMob may be added in a later version; this policy will be updated first.</li>
 <li>No selling or sharing of data with anyone.</li>
 </ul>
 
+<h2>Internet use and Google Play</h2>
+<p>The app uses the internet to talk to Google Drive and, through Google Play services, to ask Google Play whether a newer version of the app is available. Google Play may process that request under its own privacy policy. The app sends no bills or personal details for this check.</p>
+<h2>Export</h2>
+<p>“Export all bills” writes a CSV file to a location you choose. The app does not send that file anywhere.</p>
 <h2>Camera and photos</h2>
 <p>The camera is used only when you tap “Camera” to photograph a bill. When you pick from your gallery, the system photo picker gives the app only the pictures you choose.</p>
 

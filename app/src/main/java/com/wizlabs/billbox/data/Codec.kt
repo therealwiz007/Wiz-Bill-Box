@@ -3,6 +3,7 @@ package com.wizlabs.billbox.data
 import com.wizlabs.billbox.model.Account
 import com.wizlabs.billbox.model.AppData
 import com.wizlabs.billbox.model.Bill
+import com.wizlabs.billbox.model.BillFile
 import com.wizlabs.billbox.model.BillPhoto
 import com.wizlabs.billbox.model.Category
 import com.wizlabs.billbox.model.PaymentMode
@@ -14,11 +15,12 @@ import java.time.LocalDate
 /** JSON encoding shared by the local store and the bill.json files kept in Google Drive. */
 object Codec {
     const val FORMAT = 1
+    const val APP = "Wiz Bill Box"
 
     /** The portable form of a bill: what goes into Drive. No phone-specific file names. */
     fun billToJson(b: Bill): JSONObject = JSONObject().apply {
         put("format", FORMAT)
-        put("app", "Wiz Bill Box")
+        put("app", APP)
         put("id", b.id)
         put("store", b.store)
         put("product", b.product)
@@ -34,6 +36,10 @@ object Codec {
         put("updatedAt", b.updatedAt)
         put("photos", JSONArray().apply {
             b.photos.forEach { p -> put(JSONObject().put("id", p.id).put("driveId", p.driveId ?: JSONObject.NULL)) }
+        })
+        // Optional (2.0.0): PDF bills. Older app versions ignore this field; files from 1.x simply have none.
+        if (b.files.isNotEmpty()) put("files", JSONArray().apply {
+            b.files.forEach { f -> put(JSONObject().put("id", f.id).put("name", f.name).put("mime", f.mime).put("driveId", f.driveId ?: JSONObject.NULL)) }
         })
     }
 
@@ -54,6 +60,13 @@ object Codec {
         photos = o.optJSONArray("photos").objects().map {
             BillPhoto(id = it.getString("id"), localName = it.optStringOrNull("localName"), driveId = it.optStringOrNull("driveId"))
         },
+        files = o.optJSONArray("files").objects().map {
+            BillFile(
+                id = it.optStringOrNull("id") ?: java.util.UUID.randomUUID().toString(),
+                name = it.optString("name", "bill.pdf"), mime = it.optString("mime", "application/pdf"),
+                localName = it.optStringOrNull("localName"), driveId = it.optStringOrNull("driveId"),
+            )
+        },
         driveFolderId = o.optStringOrNull("driveFolderId"),
         driveJsonId = o.optStringOrNull("driveJsonId"),
         dirty = o.optBoolean("dirty", false),
@@ -69,6 +82,12 @@ object Codec {
                 put(JSONObject().put("id", p.id).put("driveId", p.driveId ?: JSONObject.NULL).put("localName", p.localName ?: JSONObject.NULL))
             }
         })
+        if (b.files.isNotEmpty()) put("files", JSONArray().apply {
+            b.files.forEach { f ->
+                put(JSONObject().put("id", f.id).put("name", f.name).put("mime", f.mime)
+                    .put("driveId", f.driveId ?: JSONObject.NULL).put("localName", f.localName ?: JSONObject.NULL))
+            }
+        })
     }
 
     fun encode(d: AppData): String = JSONObject().apply {
@@ -78,6 +97,8 @@ object Codec {
         put("rootFolderId", d.rootFolderId ?: JSONObject.NULL)
         put("lastSyncAt", d.lastSyncAt ?: JSONObject.NULL)
         put("warrantyReminderDays", d.warrantyReminderDays)
+        put("remindersOn", d.remindersOn); put("remind30", d.remind30); put("remind7", d.remind7); put("remind1", d.remind1)
+        put("notifAsked", d.notifAsked)
         put("skippedSignIn", d.skippedSignIn)
         put("pendingDeletes", JSONArray(d.pendingDeletes))
         put("bills", JSONArray().apply { d.bills.forEach { put(billToLocalJson(it)) } })
@@ -93,6 +114,9 @@ object Codec {
             rootFolderId = o.optStringOrNull("rootFolderId"),
             lastSyncAt = if (o.isNull("lastSyncAt") || !o.has("lastSyncAt")) null else o.getLong("lastSyncAt"),
             warrantyReminderDays = o.optInt("warrantyReminderDays", 30),
+            remindersOn = o.optBoolean("remindersOn", true), remind30 = o.optBoolean("remind30", true),
+            remind7 = o.optBoolean("remind7", true), remind1 = o.optBoolean("remind1", true),
+            notifAsked = o.optBoolean("notifAsked", false),
             skippedSignIn = o.optBoolean("skippedSignIn", false),
         )
     }

@@ -8,11 +8,9 @@ import kotlin.math.abs
 import kotlin.math.roundToLong
 
 object Fmt {
-    private val day = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
-    private val month = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
 
-    fun date(d: LocalDate): String = d.format(day)
-    fun month(d: LocalDate): String = d.format(month)
+    fun date(d: LocalDate): String = d.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault()))
+    fun month(d: LocalDate): String = d.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
 
     /** Indian digit grouping: 12,34,567.50. Paise are shown only when present. */
     fun money(v: Double): String {
