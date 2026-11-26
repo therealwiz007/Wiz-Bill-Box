@@ -1,3 +1,4 @@
 <resources>
-    <color name="wiz_bg">#0A0A0C</color>
+    <color name="wiz_bg">#F7F6F2</color>
+    <color name="splash_ring">#0E9F6E</color>
 </resources>
