@@ -12,10 +12,10 @@ android {
         applicationId = "com.wizlabs.billbox"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.1.0"
+        versionCode = 5
+        versionName = "2.0.0"
         // Ship only English resources (drops dozens of unused library translations).
-        resourceConfigurations += listOf("en")
+        resourceConfigurations += listOf("en", "hi")
     }
 
     buildTypes {
@@ -40,7 +40,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 }
 
 dependencies {
@@ -52,7 +52,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.exifinterface:exifinterface:1.4.0")
     implementation("androidx.tracing:tracing:1.2.0")
@@ -62,6 +61,10 @@ dependencies {
     // Google sign-in + Drive authorization (drive.file scope). Drive itself is called over plain REST.
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+
+    // Play In-App Updates and In-App Review (Java artifacts, used by com.wizlabs.update).
+    implementation("com.google.android.play:app-update:2.1.0")
+    implementation("com.google.android.play:review:2.0.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
