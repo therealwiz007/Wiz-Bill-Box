@@ -3,10 +3,16 @@
 Wiz Bill Box is a Wiz Labs Android app for saving bills. Take a photo of a bill, add the store, the product and the invoice date, and the app stores it in **your own Google Drive**. Sign in with the same Google account on any phone, or after reinstalling, and every bill comes back.
 
 - **Package:** `com.wizlabs.billbox`
-- **Launcher name:** Wiz Bill Box
+- **Launcher name:** Bill Box
 - **Play title:** Wiz Bill Box: Bills & Warranty
 - **Tech:** Kotlin, Jetpack Compose, Google Identity Services, Drive REST v3
-- **Version:** 1.0.1 (versionCode 2)
+- **Version:** 2.0.0 (versionCode 5)
+
+## Changelog
+
+- **2.0.0 (5)**: "Paper & Emerald" redesign (light-first, dark too, Manrope + IBM Plex Mono), Tally the filing-box mascot, text-free launcher icon, warranty reminders (30 / 7 / 1 day, local notifications), PDF bills, Under warranty / Expiring / Expired filter, CSV export, Hindi, tablet two-pane, ads-ready and ad-SDK-free (`wiz-ads` 0.3 `--no-sdk`), Play update popup (`wiz-update`), `material-icons-extended` removed.
+- 1.1.0 (4): animated vault, rolling numbers, predictive back.
+- 1.0.2 (3), 1.0.1 (2), 1.0.0 (1): first releases.
 
 ## Features
 
@@ -19,7 +25,10 @@ Wiz Bill Box is a Wiz Labs Android app for saving bills. Take a photo of a bill,
 - **Find bills fast:** search by store, product, invoice number, notes or GSTIN; filter by category; sort by date, recently added, amount or store. Bills are grouped by month.
 - **At a glance:** total bills, amount spent this year, active warranties, and a "warranty ending soon" card (7–90 days, set in Settings).
 - **Bill details:** swipe through photos, view full screen with pinch-zoom, share photos and details, open the bill in Google Drive, edit, delete.
-- **Settings:** account, sync status, open the Drive folder, sign out or switch account, theme (system/dark/light), privacy policy.
+- **PDF bills:** add a PDF (up to 15 MB); it is uploaded to the bill's Drive folder, previewed on the first page and opened in your PDF app. `bill.json` gets an optional `files` list (older versions ignore it).
+- **Warranty reminders:** notifications 30, 7 and 1 day before a warranty ends, each switchable in Settings. A daily inexact check at 10:00 local time reads the phone's own bills (no network) and is re-armed after a restart.
+- **Warranty filter and export:** All / Under warranty / Expiring / Expired on Home; Settings › Export writes every bill to a CSV file.
+- **Settings:** account, backup status, open the Drive folder, reminders, warranty window (7–90 days), export, theme (system/light/dark), privacy policy.
 
 ## How the Google Drive storage works
 
@@ -70,17 +79,17 @@ Signed release builds come from GitHub Actions (`.github/workflows/android.yml`)
 
 ## Play Store
 
-All listing assets are ready: icon, feature graphic and 7 screenshots in `store-assets/`, listing text and release notes in `fastlane/metadata/android/en-US/`, and step-by-step Play Console answers (including the Data safety form) in [`store-assets/PLAY_CONSOLE_GUIDE.md`](store-assets/PLAY_CONSOLE_GUIDE.md). Regenerate art with `tools/StoreArt.java`. Screenshots use a debug-only demo mode (a `demo-mode` file in the app's storage turns off sync).
+All listing assets are ready: icon, feature graphic and 8 screenshots in `store-assets/`, listing text and release notes in `fastlane/metadata/android/en-US/`, and step-by-step Play Console answers (including the Data safety form) in [`store-assets/PLAY_CONSOLE_GUIDE.md`](store-assets/PLAY_CONSOLE_GUIDE.md). Regenerate art with `store-assets/render.sh` (headless Chrome; sources `icon.svg`, `feature.html`, `frame.html`, `mascot/tally.svg`). Screenshots are real emulator captures (`store-assets/raw/`) of a debug-only demo mode: `tools/seed/make_seed.py` builds sample bills and `tools/seed/push_seed.sh` loads them (a `demo-mode` file in the app's storage turns off sync).
 
 
-- **Data safety:** photos and the bill details the user enters are stored in the user's own Google Drive (encrypted in transit). No data is collected by or shared with Wiz Labs. No ads and no analytics.
-- **Permissions:** `INTERNET` and `ACCESS_NETWORK_STATE` (for Drive). The camera is used through the system camera app, so the app doesn't request the camera permission. The gallery uses the system photo picker, so it doesn't request storage permission either.
+- **Data safety:** photos and the bill details the user enters are stored in the user's own Google Drive (encrypted in transit). No data is collected by or shared with Wiz Labs. No ads are shown in this version and there is no analytics.
+- **Permissions:** `INTERNET` and `ACCESS_NETWORK_STATE` (Drive and Play update checks), `POST_NOTIFICATIONS` (warranty reminders), `RECEIVE_BOOT_COMPLETED` (re-arm the daily check). The camera is used through the system camera app, so the app doesn't request the camera permission. The gallery uses the system photo picker, so it doesn't request storage permission either.
 - **Privacy policy:** `privacy-policy.html` (also bundled at `app/src/main/assets/` and shown in the app).
 
 ## Project layout
 
 ```
-app/src/main/java/com/wizlabs/bills/
+app/src/main/java/com/wizlabs/billbox/
   MainActivity.kt          navigation, Google consent launcher
   AppViewModel.kt          sign-in, sync scheduling, error messages
   model/Models.kt          Bill, BillPhoto, Category, PaymentMode, AppData
@@ -91,4 +100,8 @@ app/src/main/java/com/wizlabs/bills/
   drive/DriveApi.kt        minimal Drive v3 REST client
   drive/DriveAuth.kt       Google Identity AuthorizationClient wrapper
   ui/screens/              Welcome, Home, BillEditor, BillDetail, Settings/Privacy
+  ui/mascot/ engine/       Tally (code-drawn) and its tested brain
+  reminders/               WarrantyScheduler (pure), WarrantyAlarms, receivers
+  data/Files.kt CsvExport  PDF storage + thumbnails, CSV writer
+  com/wizlabs/ads|update   shared modules (never hand-edit; sync from wiz-ads / wiz-update)
 ```

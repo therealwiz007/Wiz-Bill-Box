@@ -1,0 +1,9 @@
+<html><head><meta charset="utf-8"><style>
+@font-face{font-family:M;src:url(../app/src/main/res/font/manrope.ttf);font-weight:200 800}
+body{margin:0;width:1080px;height:1920px;background:#F7F6F2;position:relative;overflow:hidden;font-family:M}
+h1{position:absolute;left:70px;top:90px;width:760px;margin:0;font-size:78px;line-height:1.08;font-weight:800;color:#111A16;letter-spacing:-1.5px}
+.u{position:absolute;left:70px;top:372px;width:170px;height:10px;border-radius:5px;background:#0E9F6E}
+.shot{position:absolute;left:110px;top:440px;width:860px;border-radius:56px 56px 0 0;border:3px solid #E3E0D6;border-bottom:0;box-shadow:0 24px 60px rgba(17,26,22,.18);height:1560px;object-fit:cover;object-position:top}
+.m{position:absolute;right:50px;top:110px;width:200px;display:none}
+</style></head><body><h1 id="h"></h1><div class="u"></div><img class="shot" id="s"><img class="m" id="m" src="mascot/tally-512.png">
+<script>const p=new URLSearchParams(location.search);h.textContent=p.get('t');s.src=p.get('i');if(p.get('m')){m.style.display='block'}</script></body></html>

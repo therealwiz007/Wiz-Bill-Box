@@ -63,7 +63,7 @@ val LightPalette = WizPalette(
     text = Color(0xFF111A16), muted = Color(0xFF5E6B64),
     accent = Color(0xFF0E9F6E), onAccent = Color(0xFFFFFFFF), accentInk = Color(0xFF0B7D57),
     warranty = Color(0xFFD99A1E), warrantyInk = Color(0xFF8F5F00),
-    good = Color(0xFF16A34A), warn = Color(0xFFC2410C), bad = Color(0xFFDC2626),
+    good = Color(0xFF16A34A), warn = Color(0xFFC2410C), bad = Color(0xFFCC2020),
 )
 
 /** 12 fixed category tints (same in light and dark). */

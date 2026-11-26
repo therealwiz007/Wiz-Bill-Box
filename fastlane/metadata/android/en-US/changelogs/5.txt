@@ -1,0 +1,7 @@
+Wiz Bill Box 2.0.0: a new look and warranty reminders
+• Warranty reminders 30, 7 and 1 day before a warranty ends (you choose)
+• Add PDF bills, such as e-bills from online stores
+• Filter by Under warranty, Expiring or Expired
+• Export all bills to a CSV file
+• New Paper & Emerald design, light and dark, with Tally the box mascot
+• Hindi language support
