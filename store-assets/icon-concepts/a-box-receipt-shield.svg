@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="432" height="432">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0E9F6E"/><stop offset="1" stop-color="#0B7D57"/></linearGradient></defs>
+  <rect width="108" height="108" fill="url(#g)"/>
+  <!-- receipt rising out of the box -->
+  <path d="M40,52 L40,24 L44,21 L48,24 L52,21 L56,24 L60,21 L64,24 L68,21 L68,52 Z" fill="#FFFFFF"/>
+  <path d="M45,31 h18 M45,36 h12" stroke="#0B7D57" stroke-opacity=".45" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- saffron check-shield on the receipt -->
+  <path d="M54,38.5 l7,2.8 v5.6 c0,3.8 -2.8,6.4 -7,7.8 c-4.2,-1.4 -7,-4 -7,-7.8 v-5.6 z" fill="#F5B841" stroke="#0B7D57" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M50.6,46.4 l2.6,2.6 l4.6,-5" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- box -->
+  <path d="M30,57 L78,57 L75.2,86 Q75,88 73,88 L35,88 Q33,88 32.8,86 Z" fill="#FFFFFF"/>
+  <rect x="26.5" y="49.5" width="55" height="9.5" rx="4.2" fill="#FFFFFF" stroke="#0B7D57" stroke-width="2.2"/>
+  <rect x="44" y="66" width="20" height="5.5" rx="2.75" fill="#0E9F6E" fill-opacity=".28"/>
+</svg>
